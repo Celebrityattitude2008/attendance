@@ -21,7 +21,7 @@
 
             <div class="form-group">
                 <label for="regMatricNo">Matric Number</label>
-                <input id="regMatricNo" name="regMatricNo" type="text" placeholder="e.g., BIU/2023/001" required>
+                <input id="regMatricNo" name="regMatricNo" type="text" placeholder="e.g., BIU/2023" required>
             </div>
 
             <div class="form-group">
@@ -61,7 +61,7 @@
     <script src="auth.js"></script>
     <script>
         function goToLogin() {
-            window.location.href = 'login.html';
+            window.location.href = 'login';
         }
 
         async function handleRegister(event) {
@@ -99,7 +99,7 @@
                 });
 
                 alert('Account created! Redirecting to login...');
-                window.location.href = 'login.html';
+                window.location.href = 'login';
             } catch (error) {
                 showError(errorDiv, error.message);
             }
