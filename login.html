@@ -47,8 +47,8 @@
                 Matric: <code>test001</code><br>
                 Password: <code>Test@123</code><br><br>
                 <strong>Admin:</strong><br>
-                Matric: <code>scn/csc/250394</code><br>
-                (No password needed)
+                Select "Admin" and click Login<br>
+                (Sign in with Google)
             </p>
         </div>
     </div>
@@ -57,6 +57,75 @@
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
     <script src="auth.js"></script>
+    <script>
+        // Wait for auth.js to load
+        window.onload = function() {
+            console.log('auth.js loaded, ensureAdminAccount:', typeof ensureAdminAccount);
+            console.log('firebase:', typeof firebase);
+        };
+        
+        // Inline ensureAdminAccount function - use Google sign-in
+        async function ensureAdminAccount() {
+            const adminEmail = 'pauladamu600@gmail.com';
+            
+            try {
+                // Use Google auth provider
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.addScope('email');
+                provider.addScope('profile');
+                
+                const result = await firebase.auth().signInWithPopup(provider);
+                console.log('Google sign-in successful:', result.user.email);
+                
+                // Check if it's the correct admin email
+                if (result.user.email.toLowerCase() !== adminEmail.toLowerCase()) {
+                    await firebase.auth().signOut();
+                    throw new Error('Not authorized. Only ' + adminEmail + ' can access admin.');
+                }
+                
+                // Create admin user record
+                const db = firebase.database();
+                await db.ref(`users/${result.user.uid}`).set({
+                    matricNo: 'admin',
+                    name: result.user.displayName || 'Administrator',
+                    email: result.user.email,
+                    role: 'admin'
+                });
+                console.log('Admin user record created');
+                return result.user;
+            } catch (error) {
+                console.error('Admin login error:', error);
+                throw error;
+            }
+        }
+        
+        async function ensureTestAccount() {
+            try {
+                const userCredential = await firebase.auth().signInWithEmailAndPassword('test001@ids111.com', 'Test@123');
+                await ensureUserRecord(userCredential.user, 'student', 'Test Student');
+                return userCredential.user;
+            } catch (error) {
+                if (error.code === 'auth/user-not-found' || error.message.includes('user-not-found')) {
+                    try {
+                        const result = await firebase.auth().createUserWithEmailAndPassword('test001@ids111.com', 'Test@123');
+                        const db = firebase.database();
+                        await db.ref(`users/${result.user.uid}`).set({
+                            matricNo: 'test001',
+                            name: 'Test Student',
+                            email: 'test001@ids111.com',
+                            role: 'student'
+                        });
+                        return result.user;
+                    } catch (createError) {
+                        console.error('Failed to create test account:', createError);
+                        throw createError;
+                    }
+                }
+                console.error('Test account error:', error);
+                throw error;
+            }
+        }
+    </script>
     <script>
         function updateLoginForm() {
             const loginType = document.getElementById('loginType').value;
@@ -86,23 +155,45 @@
                 let email, pwd;
 
                 if (loginType === 'admin') {
-                    if (matricNo.toLowerCase() !== 'scn/csc/250394') {
-                        throw new Error('Invalid admin matric number');
-                    }
-                    email = 'admin@ids111.com';
-                    pwd = 'Admin@123';
+                    console.log('Starting admin login with Google...');
+                    // Ensure admin account exists and sign in
+                    await ensureAdminAccount();
+                    console.log('Admin login successful, redirecting...');
+                    // Already signed in, redirect
+                    window.location.href = 'dashboard.html';
+                    return;
                 } else {
                     if (!password) {
                         throw new Error('Password is required for student login');
                     }
+                    
+                    // Check if this is the test account
+                    if (matricNo.toLowerCase() === 'test001' && password === 'Test@123') {
+                        await ensureTestAccount();
+                        window.location.href = 'dashboard.html';
+                        return;
+                    }
+                    
                     email = sanitizeEmail(matricNo);
                     pwd = password;
                 }
 
-                await firebase.auth().signInWithEmailAndPassword(email, pwd);
+                const userCredential = await firebase.auth().signInWithEmailAndPassword(email, pwd);
+                
+                // Ensure user record exists in database
+                const role = loginType === 'admin' ? 'admin' : 'student';
+                const name = loginType === 'admin' ? 'Administrator' : '';
+                await ensureUserRecord(userCredential.user, role, name);
+                
                 window.location.href = 'dashboard.html';
             } catch (error) {
-                showError(errorDiv, error.message);
+                console.error('Login error:', error);
+                // Show more detailed error
+                let errorMsg = error.message;
+                if (error.code) {
+                    errorMsg += ' (code: ' + error.code + ')';
+                }
+                showError(errorDiv, errorMsg);
             }
         }
 

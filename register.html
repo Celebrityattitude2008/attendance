@@ -64,13 +64,8 @@
                 const email = sanitizeEmail(matricNo);
                 const result = await firebase.auth().createUserWithEmailAndPassword(email, password);
 
-                const db = firebase.database();
-                await db.ref(`users/${result.user.uid}`).set({
-                    matricNo: matricNo.toLowerCase(),
-                    name: name,
-                    email: email,
-                    role: 'student'
-                });
+                // Ensure user record exists in database
+                await ensureUserRecord(result.user, 'student', name);
 
                 alert('Account created! Redirecting to login...');
                 window.location.href = 'login.html';
