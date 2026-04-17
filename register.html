@@ -25,6 +25,24 @@
             </div>
 
             <div class="form-group">
+                <label for="regDepartment">Department</label>
+                <select id="regDepartment" name="regDepartment" required>
+                    <option value="">Select Department</option>
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Nursing">Nursing</option>
+                    <option value="Medicine and Surgery">Medicine and Surgery</option>
+                    <option value="Med Lab">Med Lab</option>
+                    <option value="Agric">Agric</option>
+                    <option value="Engineering">Engineering</option>
+                    <option value="Anatomy">Anatomy</option>
+                    <option value="Bio Chemistry">Bio Chemistry</option>
+                    <option value="Micro Biology">Micro Biology</option>
+                    <option value="Geo Physics">Geo Physics</option>
+                    <option value="Physiology">Physiology</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label for="regPassword">Password</label>
                 <input id="regPassword" name="regPassword" type="password" placeholder="At least 6 characters" required>
             </div>
@@ -50,10 +68,16 @@
             event.preventDefault();
             const name = document.getElementById('regName').value;
             const matricNo = document.getElementById('regMatricNo').value.trim();
+            const department = document.getElementById('regDepartment').value;
             const password = document.getElementById('regPassword').value;
             const errorDiv = document.getElementById('errorMessage');
 
             errorDiv.classList.remove('show');
+
+            if (!department) {
+                showError(errorDiv, 'Please select a department');
+                return;
+            }
 
             if (password.length < 6) {
                 showError(errorDiv, 'Password must be at least 6 characters');
@@ -64,8 +88,15 @@
                 const email = sanitizeEmail(matricNo);
                 const result = await firebase.auth().createUserWithEmailAndPassword(email, password);
 
-                // Ensure user record exists in database
-                await ensureUserRecord(result.user, 'student', name);
+                // Save user record with department
+                const db = firebase.database();
+                await db.ref(`users/${result.user.uid}`).set({
+                    matricNo: matricNo.toLowerCase(),
+                    name: name,
+                    email: email,
+                    role: 'student',
+                    department: department
+                });
 
                 alert('Account created! Redirecting to login...');
                 window.location.href = 'login.html';

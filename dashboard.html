@@ -244,13 +244,13 @@
                 const attendanceRef = db.ref('attendance/' + currentSession.id);
                 const snapshot = await attendanceRef.once('value');
                 const attendance = snapshot.val() || {};
-                let csv = 'Matric No,Name,Email,Timestamp,Latitude,Longitude\n';
+                let csv = 'Matric No,Name,Department,Email,Timestamp,Latitude,Longitude\n';
                 for (const [uid, record] of Object.entries(attendance)) {
                     // Fetch user info
                     const userSnap = await db.ref('users/' + uid).once('value');
                     const user = userSnap.val() || {};
                     const timestamp = record.timestamp ? new Date(record.timestamp).toLocaleString() : '';
-                    csv += `${user.matricNo || ''},${user.name || ''},${user.email || ''},${timestamp},${record.lat || ''},${record.lng || ''}\n`;
+                    csv += `${user.matricNo || ''},${user.name || ''},${user.department || ''},${user.email || ''},${timestamp},${record.lat || ''},${record.lng || ''}\n`;
                 }
                 const blob = new Blob([csv], { type: 'text/csv' });
                 const url = URL.createObjectURL(blob);
