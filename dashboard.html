@@ -141,6 +141,8 @@
 
             // Get user location
             navigator.geolocation.getCurrentPosition(async (position) => {
+                // Maximum distance in meters (extended to 50km)
+                const maxDistance = 50000;
                 try {
                     const db = firebase.database();
                     const sessionsRef = db.ref('sessions');
@@ -168,7 +170,6 @@
                             position.coords.latitude, position.coords.longitude,
                             session.adminLat, session.adminLng
                         );
-                        const maxDistance = 9000;
                         if (distance > maxDistance) {
                             alert(`You are too far from the admin (${Math.round(distance)}m). Must be within ${maxDistance}m.`);
                             return;
