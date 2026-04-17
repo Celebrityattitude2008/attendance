@@ -190,7 +190,10 @@
 
             const qrUrl = `${window.location.origin}/scan.html?token=${currentSession.token}`;
             QRCode.toDataURL(qrUrl, (err, url) => {
-                if (!err) {
+                if (err) {
+                    console.error('QR Code generation error:', err, 'URL:', qrUrl);
+                    document.getElementById('qrCode').alt = 'QR generation failed';
+                } else {
                     document.getElementById('qrCode').src = url;
                 }
             });
