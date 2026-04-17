@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDS 111 Attendance - Register</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>IDS 111 Attendance Portal</h1>
+        <h2>Register</h2>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <form id="registerForm" onsubmit="handleRegister(event)">
+            <div class="form-group">
+                <label for="regName">Full Name</label>
+                <input id="regName" name="regName" type="text" required>
+            </div>
+
+            <div class="form-group">
+                <label for="regMatricNo">Matric Number</label>
+                <input id="regMatricNo" name="regMatricNo" type="text" placeholder="e.g., BIU/2023/001" required>
+            </div>
+
+            <div class="form-group">
+                <label for="regPassword">Password</label>
+                <input id="regPassword" name="regPassword" type="password" placeholder="At least 6 characters" required>
+            </div>
+
+            <button type="submit">Register</button>
+        </form>
+
+        <div class="links" style="margin-top: 20px;">
+            <a onclick="goToLogin()">← Back to Login</a>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        function goToLogin() {
+            window.location.href = 'login.html';
+        }
+
+        async function handleRegister(event) {
+            event.preventDefault();
+            const name = document.getElementById('regName').value;
+            const matricNo = document.getElementById('regMatricNo').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const errorDiv = document.getElementById('errorMessage');
+
+            errorDiv.classList.remove('show');
+
+            if (password.length < 6) {
+                showError(errorDiv, 'Password must be at least 6 characters');
+                return;
+            }
+
+            try {
+                const email = sanitizeEmail(matricNo);
+                const result = await firebase.auth().createUserWithEmailAndPassword(email, password);
+
+                const db = firebase.database();
+                await db.ref(`users/${result.user.uid}`).set({
+                    matricNo: matricNo.toLowerCase(),
+                    name: name,
+                    email: email,
+                    role: 'student'
+                });
+
+                alert('Account created! Redirecting to login...');
+                window.location.href = 'login.html';
+            } catch (error) {
+                showError(errorDiv, error.message);
+            }
+        }
+
+        function showError(element, message) {
+            element.textContent = message;
+            element.classList.add('show');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDS 111 Attendance - Login</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>IDS 111 Attendance Portal</h1>
+        <h2>Login</h2>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label for="loginType">Login As:</label>
+                <select id="loginType" name="loginType" onchange="updateLoginForm()">
+                    <option value="student">Student</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="matricNo">Matric Number</label>
+                <input id="matricNo" name="matricNo" type="text" placeholder="e.g., BIU/2023/001 or SCN/CSC/250394" required>
+            </div>
+
+            <div class="form-group" id="passwordGroup">
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" placeholder="Enter password">
+            </div>
+
+            <button type="submit">Login</button>
+        </form>
+
+        <div class="divider">
+            <span>or</span>
+        </div>
+
+        <button type="button" onclick="goToRegister()" class="btn-admin">Create Account</button>
+
+        <div class="links">
+            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <strong>Test Account:</strong><br>
+                Matric: <code>test001</code><br>
+                Password: <code>Test@123</code><br><br>
+                <strong>Admin:</strong><br>
+                Matric: <code>scn/csc/250394</code><br>
+                (No password needed)
+            </p>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        function updateLoginForm() {
+            const loginType = document.getElementById('loginType').value;
+            const passwordGroup = document.getElementById('passwordGroup');
+            
+            if (loginType === 'admin') {
+                passwordGroup.style.display = 'none';
+            } else {
+                passwordGroup.style.display = 'block';
+            }
+        }
+
+        function goToRegister() {
+            window.location.href = 'register.html';
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            const loginType = document.getElementById('loginType').value;
+            const matricNo = document.getElementById('matricNo').value.trim();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
+
+            errorDiv.classList.remove('show');
+
+            try {
+                let email, pwd;
+
+                if (loginType === 'admin') {
+                    if (matricNo.toLowerCase() !== 'scn/csc/250394') {
+                        throw new Error('Invalid admin matric number');
+                    }
+                    email = 'admin@ids111.com';
+                    pwd = 'Admin@123';
+                } else {
+                    if (!password) {
+                        throw new Error('Password is required for student login');
+                    }
+                    email = sanitizeEmail(matricNo);
+                    pwd = password;
+                }
+
+                await firebase.auth().signInWithEmailAndPassword(email, pwd);
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                showError(errorDiv, error.message);
+            }
+        }
+
+        function showError(element, message) {
+            element.textContent = message;
+            element.classList.add('show');
+        }
+
+        updateLoginForm();
+    </script>
+</body>
+</html>

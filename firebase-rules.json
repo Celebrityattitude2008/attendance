@@ -1,0 +1,43 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('users/'+auth.uid+'/role').val() === 'admin')",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['matricNo', 'name', 'role', 'email'])"
+      }
+    },
+
+    "sessions": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('users/'+auth.uid+'/role').val() === 'admin'",
+      "$sessionId": {
+        "token": { ".validate": "newData.isString()" },
+        "startTime": { ".validate": "newData.isNumber()" },
+        "endTime": { ".validate": "newData.isNumber()" },
+        "active": { ".validate": "newData.isBoolean()" },
+        "course": { ".validate": "newData.val() === 'IDS111'" }
+      }
+    },
+
+    "attendance": {
+      ".read": "auth != null",
+      "$sessionId": {
+        "$uid": {
+          ".write": "
+            auth != null &&
+            auth.uid === $uid &&
+            !data.exists() &&
+            root.child('sessions/'+$sessionId+'/active').val() === true &&
+            now < root.child('sessions/'+$sessionId+'/endTime').val()
+          ",
+          ".read": "auth != null",
+          "timestamp": { ".validate": "newData.isNumber()" },
+          "deviceId": { ".validate": "newData.isString()" },
+          "lat": { ".validate": "newData.isNumber()" },
+          "lng": { ".validate": "newData.isNumber()" }
+        }
+      }
+    }
+  }
+}

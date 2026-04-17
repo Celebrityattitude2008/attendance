@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDS 111 Attendance - Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard-header">
+            <div>
+                <h1 style="margin: 0; text-align: left; font-size: 24px;">Dashboard</h1>
+                <p id="userInfo" style="color: #999; margin: 5px 0 0 0; font-size: 14px;"></p>
+            </div>
+            <button class="logout-btn" onclick="handleLogout()">Logout</button>
+        </div>
+
+        <!-- Student Dashboard -->
+        <div id="studentView" style="display: none;">
+            <div class="session-control">
+                <h3>Mark Attendance</h3>
+                <form id="attendanceForm" onsubmit="markAttendance(event)">
+                    <div class="form-group">
+                        <label for="sessionToken">Session Token</label>
+                        <input id="sessionToken" name="sessionToken" type="text" placeholder="Enter token from admin" required>
+                    </div>
+                    <button type="submit">Mark Attendance</button>
+                </form>
+            </div>
+
+            <div class="session-control">
+                <h3>Your Attendance History</h3>
+                <div id="attendanceHistory" class="attendance-list"></div>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div id="adminView" style="display: none;">
+            <div class="session-control">
+                <h3>Session Control</h3>
+                <div id="sessionStatus"></div>
+                <button id="startBtn" onclick="startSession()">Start Attendance Session</button>
+                <button id="endBtn" onclick="endSession()" style="display: none; background: #f44;">End Session</button>
+            </div>
+
+            <div id="qrSection" style="display: none;">
+                <div class="session-control">
+                    <h3>QR Code</h3>
+                    <div class="qr-display">
+                        <img id="qrCode" src="" alt="QR Code" style="max-width: 300px; margin: 0 auto; display: block;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="session-control">
+                <h3>Live Attendance (<span id="attendanceCount">0</span>)</h3>
+                <div class="attendance-list" id="attendanceList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        let currentUser = null;
+        let currentSession = null;
+
+        // Check auth state
+        firebase.auth().onAuthStateChanged(async user => {
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            currentUser = user;
+            const db = firebase.database();
+            const userRef = db.ref(`users/${user.uid}`);
+            const snapshot = await userRef.once('value');
+            const userData = snapshot.val();
+
+            document.getElementById('userInfo').textContent = 
+                (userData?.role === 'admin' ? 'Admin' : 'Student') + ' - ' + (userData?.name || user.email);
+
+            if (userData?.role === 'admin') {
+                document.getElementById('studentView').style.display = 'none';
+                document.getElementById('adminView').style.display = 'block';
+                loadAdminDashboard();
+            } else {
+                document.getElementById('adminView').style.display = 'none';
+                document.getElementById('studentView').style.display = 'block';
+                loadStudentDashboard();
+            }
+        });
+
+        async function loadStudentDashboard() {
+            try {
+                const db = firebase.database();
+                const attendanceRef = db.ref('attendance');
+                const snapshot = await attendanceRef.once('value');
+                const allAttendance = snapshot.val() || {};
+
+                const history = [];
+                Object.values(allAttendance).forEach(session => {
+                    if (session && session[currentUser.uid]) {
+                        const record = session[currentUser.uid];
+                        history.push({
+                            date: new Date(record.timestamp).toLocaleDateString(),
+                            time: new Date(record.timestamp).toLocaleTimeString()
+                        });
+                    }
+                });
+
+                const historyDiv = document.getElementById('attendanceHistory');
+                historyDiv.innerHTML = history.length > 0 
+                    ? history.map(h => `<div class="attendance-item">✓ ${h.date} at ${h.time}</div>`).join('')
+                    : '<p style="color: #999;">No attendance records yet</p>';
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        async function markAttendance(event) {
+            event.preventDefault();
+            const token = document.getElementById('sessionToken').value.trim();
+
+            try {
+                const db = firebase.database();
+                const sessionsRef = db.ref('sessions');
+                const snapshot = await sessionsRef.once('value');
+                const sessions = snapshot.val() || {};
+
+                let sessionId = null;
+                for (const [id, session] of Object.entries(sessions)) {
+                    if (session && session.token === token && session.active) {
+                        sessionId = id;
+                        break;
+                    }
+                }
+
+                if (!sessionId) {
+                    alert('Invalid or inactive session token');
+                    return;
+                }
+
+                await db.ref(`attendance/${sessionId}/${currentUser.uid}`).set({
+                    timestamp: Date.now(),
+                    deviceId: 'web-' + Date.now()
+                });
+
+                alert('✓ Attendance marked!');
+                document.getElementById('sessionToken').value = '';
+                loadStudentDashboard();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function loadAdminDashboard() {
+            try {
+                const db = firebase.database();
+                const sessionsRef = db.ref('sessions');
+                const snapshot = await sessionsRef.once('value');
+                const sessions = snapshot.val() || {};
+
+                const activeSessions = Object.entries(sessions).find(([_, s]) => s && s.active);
+                if (activeSessions) {
+                    currentSession = { id: activeSessions[0], ...activeSessions[1] };
+                    displaySessionStatus();
+                    loadLiveAttendance();
+                    startAttendancePolling();
+                } else {
+                    displayNoSession();
+                }
+            } catch (error) {
+                console.error('Error loading admin dashboard:', error);
+            }
+        }
+
+        function displaySessionStatus() {
+            const statusDiv = document.getElementById('sessionStatus');
+            statusDiv.innerHTML = `<div class="session-status">✓ Session Active | Token: <strong>${currentSession.token}</strong></div>`;
+
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('endBtn').style.display = 'block';
+            document.getElementById('qrSection').style.display = 'block';
+
+            const qrUrl = `${window.location.origin}/scan.html?token=${currentSession.token}`;
+            QRCode.toDataURL(qrUrl, (err, url) => {
+                if (!err) {
+                    document.getElementById('qrCode').src = url;
+                }
+            });
+        }
+
+        function displayNoSession() {
+            const statusDiv = document.getElementById('sessionStatus');
+            statusDiv.innerHTML = '<p style="color: #999;">No active session</p>';
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('endBtn').style.display = 'none';
+            document.getElementById('qrSection').style.display = 'none';
+        }
+
+        async function startSession() {
+            try {
+                const db = firebase.database();
+                const token = Math.random().toString(36).substring(2, 11);
+                const startTime = Date.now();
+                const endTime = startTime + (30 * 60 * 1000);
+
+                const newSessionRef = db.ref('sessions').push();
+                await newSessionRef.set({
+                    token: token,
+                    startTime: startTime,
+                    endTime: endTime,
+                    active: true
+                });
+
+                currentSession = { id: newSessionRef.key, token, startTime, endTime, active: true };
+                displaySessionStatus();
+                startAttendancePolling();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function endSession() {
+            try {
+                const db = firebase.database();
+                await db.ref(`sessions/${currentSession.id}`).update({ active: false });
+                currentSession = null;
+                displayNoSession();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function startAttendancePolling() {
+            const interval = setInterval(() => {
+                if (!currentSession || !currentSession.active) {
+                    clearInterval(interval);
+                    return;
+                }
+                loadLiveAttendance();
+            }, 2000);
+        }
+
+        async function loadLiveAttendance() {
+            if (!currentSession) return;
+
+            try {
+                const db = firebase.database();
+                const attendanceRef = db.ref(`attendance/${currentSession.id}`);
+                const snapshot = await attendanceRef.once('value');
+                const attendance = snapshot.val() || {};
+
+                const list = document.getElementById('attendanceList');
+                const items = Object.entries(attendance).map(([uid, record]) => {
+                    const date = new Date(record.timestamp);
+                    const isLate = record.timestamp > (currentSession.startTime + 5 * 60 * 1000);
+                    return `<div class="attendance-item ${isLate ? 'late' : ''}">
+                        ✓ ${uid.substring(0, 8)}... | ${date.toLocaleTimeString()}
+                    </div>`;
+                });
+
+                document.getElementById('attendanceCount').textContent = items.length;
+                list.innerHTML = items.length > 0 ? items.join('') : '<p style="color: #999;">Waiting for attendance...</p>';
+            } catch (error) {
+                console.error('Error loading attendance:', error);
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await firebase.auth().signOut();
+                window.location.href = 'login.html';
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
