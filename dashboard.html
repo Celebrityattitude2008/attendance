@@ -221,14 +221,10 @@
             document.getElementById('qrSection').style.display = 'block';
 
             const qrUrl = `${window.location.origin}/scan.html?token=${currentSession.token}`;
-            QRCode.toDataURL(qrUrl, (err, url) => {
-                if (err) {
-                    console.error('QR Code generation error:', err, 'URL:', qrUrl);
-                    document.getElementById('qrCode').alt = 'QR generation failed';
-                } else {
-                    document.getElementById('qrCode').src = url;
-                }
-            });
+            // Use qrserver.com for QR code
+            const qrApi = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrUrl)}`;
+            document.getElementById('qrCode').src = qrApi;
+            document.getElementById('qrCode').alt = 'QR Code';
         }
 
         function displayNoSession() {
