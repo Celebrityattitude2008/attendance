@@ -39,6 +39,10 @@
         <div id="adminView" style="display: none;">
             <div class="session-control">
                 <h3>Session Control</h3>
+                <div class="form-group">
+                    <label for="sessionDuration">Attendance Validity (minutes):</label>
+                    <input id="sessionDuration" type="number" value="30" min="1" max="120" style="width: 80px;">
+                </div>
                 <div id="sessionStatus"></div>
                 <button id="startBtn" onclick="startSession()">Start Attendance Session</button>
                 <button id="endBtn" onclick="endSession()" style="display: none; background: #f44;">End Session</button>
@@ -129,36 +133,85 @@
             event.preventDefault();
             const token = document.getElementById('sessionToken').value.trim();
 
-            try {
-                const db = firebase.database();
-                const sessionsRef = db.ref('sessions');
-                const snapshot = await sessionsRef.once('value');
-                const sessions = snapshot.val() || {};
-
-                let sessionId = null;
-                for (const [id, session] of Object.entries(sessions)) {
-                    if (session && session.token === token && session.active) {
-                        sessionId = id;
-                        break;
-                    }
-                }
-
-                if (!sessionId) {
-                    alert('Invalid or inactive session token');
-                    return;
-                }
-
-                await db.ref(`attendance/${sessionId}/${currentUser.uid}`).set({
-                    timestamp: Date.now(),
-                    deviceId: 'web-' + Date.now()
-                });
-
-                alert('✓ Attendance marked!');
-                document.getElementById('sessionToken').value = '';
-                loadStudentDashboard();
-            } catch (error) {
-                alert('Error: ' + error.message);
+            // Check if geolocation is available
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by your browser. Attendance cannot be marked.');
+                return;
             }
+
+            // Get user location
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                try {
+                    const db = firebase.database();
+                    const sessionsRef = db.ref('sessions');
+                    const snapshot = await sessionsRef.once('value');
+                    const sessions = snapshot.val() || {};
+
+                    let session = null;
+                    let sessionId = null;
+                    for (const [id, s] of Object.entries(sessions)) {
+                        if (s && s.token === token && s.active) {
+                            session = s;
+                            sessionId = id;
+                            break;
+                        }
+                    }
+
+                    if (!session) {
+                        alert('Invalid or inactive session token');
+                        return;
+                    }
+
+                    // Check distance from admin
+                    if (session.adminLat && session.adminLng) {
+                        const distance = getDistance(
+                            position.coords.latitude, position.coords.longitude,
+                            session.adminLat, session.adminLng
+                        );
+                        const maxDistance = 100; // 100 meters
+                        if (distance > maxDistance) {
+                            alert(`You are too far from the admin (${Math.round(distance)}m). Must be within ${maxDistance}m.`);
+                            return;
+                        }
+                    }
+
+                    // Check if already marked attendance for this session
+                    const existingAttendance = await db.ref(`attendance/${sessionId}/${currentUser.uid}`).once('value');
+                    if (existingAttendance.exists()) {
+                        alert('You have already marked attendance for this session!');
+                        return;
+                    }
+
+                    // Get device fingerprint
+                    const deviceId = getDeviceFingerprint();
+
+                    // Check if this device already marked attendance (prevent device fraud)
+                    const deviceAttendanceRef = db.ref('attendance/' + sessionId);
+                    const allAttendance = await deviceAttendanceRef.once('value');
+                    for (const [uid, record] of Object.entries(allAttendance.val() || {})) {
+                        if (record.deviceId === deviceId && uid !== currentUser.uid) {
+                            alert('This device has already been used to mark attendance by another user.');
+                            return;
+                        }
+                    }
+
+                    await db.ref(`attendance/${sessionId}/${currentUser.uid}`).set({
+                        timestamp: Date.now(),
+                        deviceId: deviceId,
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                        ip: null // Note: IP requires server-side capture
+                    });
+
+                    alert('✓ Attendance marked!');
+                    document.getElementById('sessionToken').value = '';
+                    loadStudentDashboard();
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                }
+            }, (error) => {
+                alert('Location error: ' + error.message + '. Please enable location access to mark attendance.');
+            });
         }
 
         async function loadAdminDashboard() {
@@ -191,12 +244,13 @@
                 const attendanceRef = db.ref('attendance/' + currentSession.id);
                 const snapshot = await attendanceRef.once('value');
                 const attendance = snapshot.val() || {};
-                let csv = 'Matric No,Name,Email,Timestamp\n';
+                let csv = 'Matric No,Name,Email,Timestamp,Latitude,Longitude\n';
                 for (const [uid, record] of Object.entries(attendance)) {
                     // Fetch user info
                     const userSnap = await db.ref('users/' + uid).once('value');
                     const user = userSnap.val() || {};
-                    csv += `${user.matricNo || ''},${user.name || ''},${user.email || ''},${record.timestamp || ''}\n`;
+                    const timestamp = record.timestamp ? new Date(record.timestamp).toLocaleString() : '';
+                    csv += `${user.matricNo || ''},${user.name || ''},${user.email || ''},${timestamp},${record.lat || ''},${record.lng || ''}\n`;
                 }
                 const blob = new Blob([csv], { type: 'text/csv' });
                 const url = URL.createObjectURL(blob);
@@ -220,12 +274,12 @@
             document.getElementById('endBtn').style.display = 'block';
             document.getElementById('qrSection').style.display = 'block';
 
-            const qrUrl = `${window.location.origin}/scan.html?token=${currentSession.token}`;
-            // Use QRCode.js for QR code
+            // QR code now encodes only the session token
+            const qrToken = currentSession.token;
             if (typeof QRCode !== 'undefined') {
-                QRCode.toDataURL(qrUrl, (err, url) => {
+                QRCode.toDataURL(qrToken, (err, url) => {
                     if (err) {
-                        console.error('QR Code generation error:', err, 'URL:', qrUrl);
+                        console.error('QR Code generation error:', err, 'Token:', qrToken);
                         document.getElementById('qrCode').alt = 'QR generation failed';
                     } else {
                         document.getElementById('qrCode').src = url;
@@ -246,27 +300,77 @@
             document.getElementById('qrSection').style.display = 'none';
         }
 
+        // Get admin's location when starting session
         async function startSession() {
-            try {
-                const db = firebase.database();
-                const token = Math.random().toString(36).substring(2, 11);
-                const startTime = Date.now();
-                const endTime = startTime + (30 * 60 * 1000);
-
-                const newSessionRef = db.ref('sessions').push();
-                await newSessionRef.set({
-                    token: token,
-                    startTime: startTime,
-                    endTime: endTime,
-                    active: true
-                });
-
-                currentSession = { id: newSessionRef.key, token, startTime, endTime, active: true };
-                displaySessionStatus();
-                startAttendancePolling();
-            } catch (error) {
-                alert('Error: ' + error.message);
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported. Cannot start session.');
+                return;
             }
+
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                try {
+                    const db = firebase.database();
+                    const token = Math.random().toString(36).substring(2, 11);
+                    const startTime = Date.now();
+                    const durationMinutes = parseInt(document.getElementById('sessionDuration').value) || 30;
+                    const endTime = startTime + (durationMinutes * 60 * 1000);
+
+                    // Get device fingerprint
+                    const deviceId = getDeviceFingerprint();
+
+                    const newSessionRef = db.ref('sessions').push();
+                    await newSessionRef.set({
+                        token: token,
+                        startTime: startTime,
+                        endTime: endTime,
+                        active: true,
+                        // Save admin's location
+                        adminLat: position.coords.latitude,
+                        adminLng: position.coords.longitude,
+                        // Device info
+                        adminDeviceId: deviceId
+                    });
+
+                    currentSession = { id: newSessionRef.key, token, startTime, endTime, active: true };
+                    displaySessionStatus();
+                    startAttendancePolling();
+                    alert(`Session started! Valid for ${durationMinutes} minutes. Your location is saved.`);
+                } catch (error) {
+                    alert('Error starting session: ' + error.message);
+                }
+            }, (error) => {
+                alert('Location error: ' + error.message + '. Please enable location to start session.');
+            });
+        }
+
+        // Calculate distance between two coordinates (in meters)
+        function getDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371000; // Earth's radius in meters
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Get device fingerprint
+        function getDeviceFingerprint() {
+            const nav = navigator.userAgent;
+            const screen = `${screen.width}x${screen.height}`;
+            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const language = navigator.language;
+            const platform = navigator.platform;
+            // Simple hash of device info
+            const info = `${nav}|${screen}|${timezone}|${language}|${platform}`;
+            let hash = 0;
+            for (let i = 0; i < info.length; i++) {
+                const char = info.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return 'device_' + Math.abs(hash).toString(16);
         }
 
         async function endSession() {

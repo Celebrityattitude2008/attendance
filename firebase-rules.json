@@ -2,7 +2,7 @@
   "rules": {
     "users": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || root.child('users/'+auth.uid+'/role').val() === 'admin')",
+        ".read": "auth != null",
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['matricNo', 'name', 'role', 'email'])"
       }
@@ -10,7 +10,7 @@
 
     "sessions": {
       ".read": "auth != null",
-      ".write": "auth != null && root.child('users/'+auth.uid+'/role').val() === 'admin'",
+      ".write": "auth != null",
       "$sessionId": {
         "token": { ".validate": "newData.isString()" },
         "startTime": { ".validate": "newData.isNumber()" },
@@ -24,13 +24,7 @@
       ".read": "auth != null",
       "$sessionId": {
         "$uid": {
-          ".write": "
-            auth != null &&
-            auth.uid === $uid &&
-            !data.exists() &&
-            root.child('sessions/'+$sessionId+'/active').val() === true &&
-            now < root.child('sessions/'+$sessionId+'/endTime').val()
-          ",
+          ".write": "auth != null && auth.uid === $uid",
           ".read": "auth != null",
           "timestamp": { ".validate": "newData.isNumber()" },
           "deviceId": { ".validate": "newData.isString()" },
