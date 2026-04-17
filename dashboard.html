@@ -168,7 +168,7 @@
                             position.coords.latitude, position.coords.longitude,
                             session.adminLat, session.adminLng
                         );
-                        const maxDistance = 100; // 100 meters
+                        const maxDistance = 9000;
                         if (distance > maxDistance) {
                             alert(`You are too far from the admin (${Math.round(distance)}m). Must be within ${maxDistance}m.`);
                             return;
