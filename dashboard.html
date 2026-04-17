@@ -358,12 +358,12 @@
         // Get device fingerprint
         function getDeviceFingerprint() {
             const nav = navigator.userAgent;
-            const screen = `${screen.width}x${screen.height}`;
+            const screenSize = `${window.screen.width}x${window.screen.height}`;
             const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
             const language = navigator.language;
             const platform = navigator.platform;
             // Simple hash of device info
-            const info = `${nav}|${screen}|${timezone}|${language}|${platform}`;
+            const info = `${nav}|${screenSize}|${timezone}|${language}|${platform}`;
             let hash = 0;
             for (let i = 0; i < info.length; i++) {
                 const char = info.charCodeAt(i);
