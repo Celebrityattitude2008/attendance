@@ -56,6 +56,7 @@
             <div class="session-control">
                 <h3>Live Attendance (<span id="attendanceCount">0</span>)</h3>
                 <div class="attendance-list" id="attendanceList"></div>
+                <button id="downloadAttendanceBtn" style="margin-top:10px;">Download Attendance CSV</button>
             </div>
         </div>
     </div>
@@ -63,6 +64,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
+    <!-- QRCode script must be loaded BEFORE dashboard logic -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script src="auth.js"></script>
     <script>
@@ -172,11 +174,41 @@
                     displaySessionStatus();
                     loadLiveAttendance();
                     startAttendancePolling();
+                    // Enable download button
+                    document.getElementById('downloadAttendanceBtn').onclick = downloadAttendanceCSV;
                 } else {
                     displayNoSession();
                 }
             } catch (error) {
                 console.error('Error loading admin dashboard:', error);
+            }
+        }
+
+        // Download attendance as CSV
+        async function downloadAttendanceCSV() {
+            try {
+                const db = firebase.database();
+                const attendanceRef = db.ref('attendance/' + currentSession.id);
+                const snapshot = await attendanceRef.once('value');
+                const attendance = snapshot.val() || {};
+                let csv = 'Matric No,Name,Email,Timestamp\n';
+                for (const [uid, record] of Object.entries(attendance)) {
+                    // Fetch user info
+                    const userSnap = await db.ref('users/' + uid).once('value');
+                    const user = userSnap.val() || {};
+                    csv += `${user.matricNo || ''},${user.name || ''},${user.email || ''},${record.timestamp || ''}\n`;
+                }
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `attendance_${currentSession.token}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Failed to download attendance: ' + err.message);
             }
         }
 
