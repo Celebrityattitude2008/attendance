@@ -62,6 +62,24 @@
                 <div class="attendance-list" id="attendanceList"></div>
                 <button id="downloadAttendanceBtn" style="margin-top:10px;">Download Attendance CSV</button>
             </div>
+
+            <!-- Department Attendance Section -->
+            <div class="session-control">
+                <h3>View Total Attendance by Department</h3>
+                <div id="departmentAttendanceCards" class="department-cards" style="display: flex; flex-wrap: wrap; gap: 20px;"></div>
+            </div>
+            <div class="session-control">
+                <button onclick="addDefaultAttendance()" style="background:#ff9800; color:#fff; border:none; border-radius:4px; padding:8px 16px; cursor:pointer;">Add Default Attendance for All Users (Demo)</button>
+            </div>
+
+            <!-- Modal for Department Attendance Table -->
+            <div id="departmentAttendanceModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); align-items:center; justify-content:center; z-index:1000;">
+                <div style="background:#222; color:#fff; padding:30px; border-radius:10px; min-width:350px; max-width:90vw; max-height:90vh; overflow:auto; position:relative;">
+                    <button onclick="closeDepartmentAttendanceModal()" style="position:absolute; top:10px; right:10px; background:#f44; color:#fff; border:none; border-radius:4px; padding:4px 10px; cursor:pointer;">Close</button>
+                    <h3 id="modalDepartmentTitle"></h3>
+                    <div id="departmentAttendanceTable"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -233,9 +251,124 @@
                 } else {
                     displayNoSession();
                 }
+
+                // Load department attendance cards
+                await loadDepartmentAttendanceCards();
             } catch (error) {
                 console.error('Error loading admin dashboard:', error);
             }
+        }
+
+        // Load department cards for admin view
+        async function loadDepartmentAttendanceCards() {
+            const db = firebase.database();
+            const usersSnap = await db.ref('users').once('value');
+            const users = usersSnap.val() || {};
+            // Collect unique departments
+            const departments = {};
+            Object.values(users).forEach(u => {
+                if (u.department) {
+                    departments[u.department] = true;
+                }
+            });
+            const departmentList = Object.keys(departments);
+            const cardsDiv = document.getElementById('departmentAttendanceCards');
+            cardsDiv.innerHTML = '';
+            departmentList.forEach(dept => {
+                const card = document.createElement('div');
+                card.className = 'department-card';
+                card.style = 'background:#222; color:#fff; border-radius:10px; padding:20px; min-width:250px; margin-bottom:10px; box-shadow:0 2px 8px #0002; flex:1 1 300px; max-width:350px;';
+                card.innerHTML = `
+                    <h4 style="margin-bottom:10px; color:#4e8cff;"><span style='font-size:2em;'>📘</span> ${dept}</h4>
+                    <div style='font-size:13px; color:#aaa; margin-bottom:8px;'>Department</div>
+                    <button onclick="viewDepartmentAttendance('${dept.replace(/'/g, "\\'")}")" style='background:#1976d2; color:#fff; border:none; border-radius:4px; padding:8px 16px; margin-right:8px; cursor:pointer;'>👁️ View Attendance</button>
+                    <button onclick="downloadDepartmentAttendance('${dept.replace(/'/g, "\\'")}")" style='background:#43a047; color:#fff; border:none; border-radius:4px; padding:8px 16px; cursor:pointer;'>⬇️ Download as Document</button>
+                `;
+                cardsDiv.appendChild(card);
+            });
+        }
+
+        // Show modal with department attendance table
+        async function viewDepartmentAttendance(department) {
+            const db = firebase.database();
+            const usersSnap = await db.ref('users').once('value');
+            const users = usersSnap.val() || {};
+            const attendanceSnap = await db.ref('attendance').once('value');
+            const allAttendance = attendanceSnap.val() || {};
+            // Build attendance records for this department
+            const records = [];
+            Object.entries(allAttendance).forEach(([sessionId, sessionAttendance]) => {
+                Object.entries(sessionAttendance).forEach(([uid, record]) => {
+                    const user = users[uid];
+                    if (user && user.department === department) {
+                        records.push({
+                            matricNo: user.matricNo || '',
+                            name: user.name || '',
+                            email: user.email || '',
+                            timestamp: record.timestamp ? new Date(record.timestamp).toLocaleString() : '',
+                            lat: record.lat || '',
+                            lng: record.lng || ''
+                        });
+                    }
+                });
+            });
+            // Build table HTML
+            let table = `<table style='width:100%; border-collapse:collapse; background:#333; color:#fff;'>`;
+            table += `<tr style='background:#444;'><th>Matric No</th><th>Name</th><th>Email</th><th>Date/Time</th><th>Latitude</th><th>Longitude</th></tr>`;
+            if (records.length === 0) {
+                table += `<tr><td colspan='6' style='text-align:center; color:#aaa;'>No attendance records for this department.</td></tr>`;
+            } else {
+                records.forEach(r => {
+                    table += `<tr><td>${r.matricNo}</td><td>${r.name}</td><td>${r.email}</td><td>${r.timestamp}</td><td>${r.lat}</td><td>${r.lng}</td></tr>`;
+                });
+            }
+            table += `</table>`;
+            document.getElementById('modalDepartmentTitle').textContent = `Attendance for ${department}`;
+            document.getElementById('departmentAttendanceTable').innerHTML = table;
+            document.getElementById('departmentAttendanceModal').style.display = 'flex';
+        }
+
+        function closeDepartmentAttendanceModal() {
+            document.getElementById('departmentAttendanceModal').style.display = 'none';
+        }
+
+        // Download department attendance as CSV
+        async function downloadDepartmentAttendance(department) {
+            const db = firebase.database();
+            const usersSnap = await db.ref('users').once('value');
+            const users = usersSnap.val() || {};
+            const attendanceSnap = await db.ref('attendance').once('value');
+            const allAttendance = attendanceSnap.val() || {};
+            // Build attendance records for this department
+            const records = [];
+            Object.entries(allAttendance).forEach(([sessionId, sessionAttendance]) => {
+                Object.entries(sessionAttendance).forEach(([uid, record]) => {
+                    const user = users[uid];
+                    if (user && user.department === department) {
+                        records.push({
+                            matricNo: user.matricNo || '',
+                            name: user.name || '',
+                            email: user.email || '',
+                            timestamp: record.timestamp ? new Date(record.timestamp).toLocaleString() : '',
+                            lat: record.lat || '',
+                            lng: record.lng || ''
+                        });
+                    }
+                });
+            });
+            let csv = 'Matric No,Name,Email,Date/Time,Latitude,Longitude\n';
+            records.forEach(r => {
+                csv += `${r.matricNo},${r.name},${r.email},${r.timestamp},${r.lat},${r.lng}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance_${department.replace(/\s+/g, '_')}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         // Download attendance as CSV
@@ -427,6 +560,47 @@
             } catch (error) {
                 alert('Error: ' + error.message);
             }
+        }
+        // Add default attendance for all users for specific dates
+        async function addDefaultAttendance() {
+            if (!confirm('Are you sure you want to add default attendance for all users for the specified dates?')) return;
+            const db = firebase.database();
+            const usersSnap = await db.ref('users').once('value');
+            const users = usersSnap.val() || {};
+            // Dates: 27th March 2026, 10th April 2026, 17th April 2026
+            const dates = [
+                new Date('2026-03-27T09:00:00').getTime(),
+                new Date('2026-04-10T09:00:00').getTime(),
+                new Date('2026-04-17T09:00:00').getTime()
+            ];
+            for (const date of dates) {
+                // Create a session for each date
+                const sessionRef = db.ref('sessions').push();
+                const sessionId = sessionRef.key;
+                await sessionRef.set({
+                    token: Math.random().toString(36).substring(2, 11),
+                    startTime: date,
+                    endTime: date + 60 * 60 * 1000, // 1 hour session
+                    active: false,
+                    adminLat: 0,
+                    adminLng: 0,
+                    adminDeviceId: 'default',
+                    defaultSession: true
+                });
+                // Add attendance for all users (except admin)
+                for (const [uid, user] of Object.entries(users)) {
+                    if (user.role !== 'admin') {
+                        await db.ref(`attendance/${sessionId}/${uid}`).set({
+                            timestamp: date + Math.floor(Math.random() * 1800000), // random time within 30 min
+                            deviceId: 'default',
+                            lat: '',
+                            lng: '',
+                            ip: ''
+                        });
+                    }
+                }
+            }
+            alert('Default attendance added for all users for the specified dates.');
         }
     </script>
 </body>
