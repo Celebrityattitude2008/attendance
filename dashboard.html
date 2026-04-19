@@ -72,6 +72,7 @@
             <div class="session-control fade-in-up" style="animation-delay: 0.2s;">
                 <h3>Your Attendance History</h3>
                 <div id="attendanceHistory" class="attendance-list"></div>
+                <button id="downloadMyAttendanceBtn" style="margin-top:10px; background:#43a047;">Download My Attendance</button>
             </div>
         </div>
 
@@ -110,7 +111,8 @@
             <div class="session-control fade-in-up" style="animation-delay: 0.25s;">
                 <h3>Live Attendance (<span id="attendanceCount">0</span>)</h3>
                 <div class="attendance-list" id="attendanceList"></div>
-                <button id="downloadAttendanceBtn" style="margin-top:10px;">Download Attendance CSV</button>
+                <button id="downloadAttendanceBtn" style="margin-top:10px;">Download Current Session CSV</button>
+                <button id="downloadAllAttendanceBtn" style="margin-top:10px; margin-left:10px; background:#43a047;">Download All Attendance CSV</button>
             </div>
 
             <!-- Department Attendance Section (Lazy Loaded) -->
@@ -250,9 +252,33 @@
                 historyDiv.innerHTML = history.length > 0 
                     ? history.map(h => `<div class="attendance-item">✓ ${h.date} at ${h.time}</div>`).join('')
                     : '<p style="color: #999;">No attendance records yet</p>';
+                
+                // Enable download button for student's own attendance
+                document.getElementById('downloadMyAttendanceBtn').onclick = () => downloadMyAttendance(history);
             } catch (error) {
                 console.error('Error loading history:', error);
             }
+        }
+
+        // Download student's own attendance
+        function downloadMyAttendance(history) {
+            if (history.length === 0) {
+                alert('No attendance records to download.');
+                return;
+            }
+            let csv = 'Date,Time\n';
+            history.forEach(h => {
+                csv += `${h.date},${h.time}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `my_attendance_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         async function markAttendance(event) {
@@ -356,8 +382,9 @@
                     loadLiveAttendance();
                     startAttendancePolling();
                     startMapPolling();
-                    // Enable download button
+                    // Enable download buttons
                     document.getElementById('downloadAttendanceBtn').onclick = downloadAttendanceCSV;
+                    document.getElementById('downloadAllAttendanceBtn').onclick = downloadAllAttendanceCSV;
                 } else {
                     displayNoSession();
                 }
@@ -485,6 +512,10 @@
 
         // Download attendance as CSV
         async function downloadAttendanceCSV() {
+            if (!currentSession || !currentSession.id) {
+                alert('No active session to download attendance from.');
+                return;
+            }
             try {
                 const db = firebase.database();
                 const attendanceRef = db.ref('attendance/' + currentSession.id);
@@ -509,6 +540,49 @@
                 URL.revokeObjectURL(url);
             } catch (err) {
                 alert('Failed to download attendance: ' + err.message);
+            }
+        }
+
+        // Download ALL attendance (including past sessions)
+        async function downloadAllAttendanceCSV() {
+            try {
+                const db = firebase.database();
+                const attendanceRef = db.ref('attendance');
+                const snapshot = await attendanceRef.once('value');
+                const allAttendance = snapshot.val() || {};
+                
+                // Get all users for name lookup
+                const usersSnap = await db.ref('users').once('value');
+                const users = usersSnap.val() || {};
+                
+                // Get all sessions for date lookup
+                const sessionsSnap = await db.ref('sessions').once('value');
+                const sessions = sessionsSnap.val() || {};
+
+                let csv = 'Session ID,Session Date,Matric No,Name,Department,Email,Timestamp,Latitude,Longitude\n';
+                
+                for (const [sessionId, sessionAttendance] of Object.entries(allAttendance)) {
+                    const session = sessions[sessionId] || {};
+                    const sessionDate = session.startTime ? new Date(session.startTime).toLocaleDateString() : sessionId;
+                    
+                    for (const [uid, record] of Object.entries(sessionAttendance)) {
+                        const user = users[uid] || {};
+                        const timestamp = record.timestamp ? new Date(record.timestamp).toLocaleString() : '';
+                        csv += `${sessionId},${sessionDate},${user.matricNo || ''},${user.name || ''},${user.department || ''},${user.email || ''},${timestamp},${record.lat || ''},${record.lng || ''}\n`;
+                    }
+                }
+                
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `all_attendance_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Failed to download all attendance: ' + err.message);
             }
         }
 
