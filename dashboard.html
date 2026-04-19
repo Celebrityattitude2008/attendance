@@ -5,10 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IDS 111 Attendance - Dashboard</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
+        .skeleton-text { height: 16px; margin-bottom: 8px; }
+        .skeleton-box { height: 100px; margin-bottom: 10px; }
+        .skeleton-btn { height: 40px; width: 120px; display: inline-block; margin-right: 10px; }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        .fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+        .slide-in { animation: slideIn 0.4s ease-out forwards; }
+        .pulse { animation: pulse 2s infinite; }
+        #map { height: 350px; width: 100%; border-radius: 10px; margin-top: 15px; }
+        .map-legend { display: flex; gap: 15px; margin-top: 10px; font-size: 13px; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+        .legend-dot.admin { background: #e74c3c; }
+        .legend-dot.user { background: #3498db; }
+        @media (max-width: 600px) {
+            .container { padding: 20px; margin: 10px; }
+            .dashboard-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .dashboard-header h1 { font-size: 20px !important; }
+            .logout-btn { width: 100%; }
+            .session-control { padding: 15px; }
+            .department-card { min-width: 100% !important; max-width: 100% !important; }
+            #map { height: 250px; }
+            .map-legend { flex-wrap: wrap; }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <div class="dashboard-header">
+        <div class="dashboard-header fade-in-up">
             <div>
                 <h1 style="margin: 0; text-align: left; font-size: 24px;">Dashboard</h1>
                 <p id="userInfo" style="color: #999; margin: 5px 0 0 0; font-size: 14px;"></p>
@@ -16,9 +46,19 @@
             <button class="logout-btn" onclick="handleLogout()">Logout</button>
         </div>
 
+        <!-- Skeleton Loader -->
+        <div id="skeletonLoader" class="skeleton-loader">
+            <div class="skeleton skeleton-text" style="width: 60%;"></div>
+            <div class="skeleton skeleton-text" style="width: 40%;"></div>
+            <div class="skeleton skeleton-box"></div>
+        </div>
+
+        <!-- Main Content (hidden until loaded) -->
+        <div id="mainContent" style="display: none;">
+
         <!-- Student Dashboard -->
         <div id="studentView" style="display: none;">
-            <div class="session-control">
+            <div class="session-control fade-in-up" style="animation-delay: 0.1s;">
                 <h3>Mark Attendance</h3>
                 <form id="attendanceForm" onsubmit="markAttendance(event)">
                     <div class="form-group">
@@ -29,7 +69,7 @@
                 </form>
             </div>
 
-            <div class="session-control">
+            <div class="session-control fade-in-up" style="animation-delay: 0.2s;">
                 <h3>Your Attendance History</h3>
                 <div id="attendanceHistory" class="attendance-list"></div>
             </div>
@@ -37,7 +77,7 @@
 
         <!-- Admin Dashboard -->
         <div id="adminView" style="display: none;">
-            <div class="session-control">
+            <div class="session-control fade-in-up" style="animation-delay: 0.1s;">
                 <h3>Session Control</h3>
                 <div class="form-group">
                     <label for="sessionDuration">Attendance Validity (minutes):</label>
@@ -49,7 +89,7 @@
             </div>
 
             <div id="qrSection" style="display: none;">
-                <div class="session-control">
+                <div class="session-control fade-in-up" style="animation-delay: 0.15s;">
                     <h3>QR Code</h3>
                     <div class="qr-display">
                         <img id="qrCode" src="" alt="QR Code" style="max-width: 300px; margin: 0 auto; display: block;">
@@ -57,24 +97,34 @@
                 </div>
             </div>
 
-            <div class="session-control">
+            <!-- Live Map Section -->
+            <div class="session-control fade-in-up" style="animation-delay: 0.2s;">
+                <h3>📍 Live Location Map</h3>
+                <div id="map"></div>
+                <div class="map-legend">
+                    <div class="legend-item"><span class="legend-dot admin"></span> Admin Location</div>
+                    <div class="legend-item"><span class="legend-dot user"></span> User Locations</div>
+                </div>
+            </div>
+
+            <div class="session-control fade-in-up" style="animation-delay: 0.25s;">
                 <h3>Live Attendance (<span id="attendanceCount">0</span>)</h3>
                 <div class="attendance-list" id="attendanceList"></div>
                 <button id="downloadAttendanceBtn" style="margin-top:10px;">Download Attendance CSV</button>
             </div>
 
-            <!-- Department Attendance Section -->
-            <div class="session-control">
+            <!-- Department Attendance Section (Lazy Loaded) -->
+            <div class="session-control fade-in-up" style="animation-delay: 0.3s;">
                 <h3>View Total Attendance by Department</h3>
-                <div id="departmentAttendanceCards" class="department-cards" style="display: flex; flex-wrap: wrap; gap: 20px;"></div>
+                <div id="departmentAttendanceCards" class="department-cards" style="display: flex; flex-wrap: wrap; gap: 20px;">
+                    <div class="skeleton skeleton-text" style="width: 200px;"></div>
+                </div>
             </div>
-            <div class="session-control">
-                <button onclick="addDefaultAttendance()" style="background:#ff9800; color:#fff; border:none; border-radius:4px; padding:8px 16px; cursor:pointer;">Add Default Attendance for All Users (Demo)</button>
-            </div>
+
 
             <!-- Modal for Department Attendance Table -->
             <div id="departmentAttendanceModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); align-items:center; justify-content:center; z-index:1000;">
-                <div style="background:#222; color:#fff; padding:30px; border-radius:10px; min-width:350px; max-width:90vw; max-height:90vh; overflow:auto; position:relative;">
+                <div class="modal-content slide-in" style="background:#222; color:#fff; padding:30px; border-radius:10px; min-width:350px; max-width:90vw; max-height:90vh; overflow:auto; position:relative;">
                     <button onclick="closeDepartmentAttendanceModal()" style="position:absolute; top:10px; right:10px; background:#f44; color:#fff; border:none; border-radius:4px; padding:4px 10px; cursor:pointer;">Close</button>
                     <h3 id="modalDepartmentTitle"></h3>
                     <div id="departmentAttendanceTable"></div>
@@ -83,6 +133,7 @@
         </div>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
@@ -92,6 +143,9 @@
     <script>
         let currentUser = null;
         let currentSession = null;
+        let map = null;
+        let userMarkers = {};
+        let adminMarker = null;
 
         // Check auth state
         firebase.auth().onAuthStateChanged(async user => {
@@ -109,6 +163,10 @@
             document.getElementById('userInfo').textContent = 
                 (userData?.role === 'admin' ? 'Admin' : 'Student') + ' - ' + (userData?.name || user.email);
 
+            // Hide skeleton, show content
+            document.getElementById('skeletonLoader').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+
             if (userData?.role === 'admin') {
                 document.getElementById('studentView').style.display = 'none';
                 document.getElementById('adminView').style.display = 'block';
@@ -119,6 +177,56 @@
                 loadStudentDashboard();
             }
         });
+
+        // Initialize Leaflet map
+        function initMap() {
+            if (map) return;
+            map = L.map('map').setView([0, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        // Update map with admin and user locations
+        async function updateMapLocations() {
+            if (!currentSession || !currentSession.active) return;
+            initMap();
+            const db = firebase.database();
+            // Get admin location from session
+            if (currentSession.adminLat && currentSession.adminLng) {
+                if (adminMarker) {
+                    adminMarker.setLatLng([currentSession.adminLat, currentSession.adminLng]);
+                } else {
+                    adminMarker = L.marker([currentSession.adminLat, currentSession.adminLng], {
+                        icon: L.divIcon({ className: 'admin-marker', html: '<div style="background:#e74c3c; width:20px; height:20px; border-radius:50%; border:3px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>', iconSize: [20, 20] })
+                    }).addTo(map).bindPopup('Admin Location');
+                }
+                map.setView([currentSession.adminLat, currentSession.adminLng], 15);
+            }
+            // Get user locations from attendance
+            const attendanceSnap = await db.ref(`attendance/${currentSession.id}`).once('value');
+            const attendance = attendanceSnap.val() || {};
+            for (const [uid, record] of Object.entries(attendance)) {
+                if (record.lat && record.lng) {
+                    if (userMarkers[uid]) {
+                        userMarkers[uid].setLatLng([record.lat, record.lng]);
+                    } else {
+                        userMarkers[uid] = L.marker([record.lat, record.lng], {
+                            icon: L.divIcon({ className: 'user-marker', html: '<div style="background:#3498db; width:16px; height:16px; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>', iconSize: [16, 16] })
+                        }).addTo(map).bindPopup(`User: ${uid.substring(0, 8)}...`);
+                    }
+                }
+            }
+        }
+
+        // Start map polling for admin
+        function startMapPolling() {
+            setInterval(() => {
+                if (currentSession && currentSession.active) {
+                    updateMapLocations();
+                }
+            }, 3000);
+        }
 
         async function loadStudentDashboard() {
             try {
@@ -235,6 +343,7 @@
 
         async function loadAdminDashboard() {
             try {
+                await addDefaultAttendanceIfNeeded();
                 const db = firebase.database();
                 const sessionsRef = db.ref('sessions');
                 const snapshot = await sessionsRef.once('value');
@@ -246,14 +355,17 @@
                     displaySessionStatus();
                     loadLiveAttendance();
                     startAttendancePolling();
+                    startMapPolling();
                     // Enable download button
                     document.getElementById('downloadAttendanceBtn').onclick = downloadAttendanceCSV;
                 } else {
                     displayNoSession();
                 }
 
-                // Load department attendance cards
-                await loadDepartmentAttendanceCards();
+                // Load department attendance cards (lazy loaded)
+                setTimeout(async () => {
+                    await loadDepartmentAttendanceCards();
+                }, 500);
             } catch (error) {
                 console.error('Error loading admin dashboard:', error);
             }
@@ -561,9 +673,8 @@
                 alert('Error: ' + error.message);
             }
         }
-        // Add default attendance for all users for specific dates
-        async function addDefaultAttendance() {
-            if (!confirm('Are you sure you want to add default attendance for all users for the specified dates?')) return;
+        // Automatically add default attendance for all users for specific dates if not already present
+        async function addDefaultAttendanceIfNeeded() {
             const db = firebase.database();
             const usersSnap = await db.ref('users').once('value');
             const users = usersSnap.val() || {};
@@ -573,34 +684,44 @@
                 new Date('2026-04-10T09:00:00').getTime(),
                 new Date('2026-04-17T09:00:00').getTime()
             ];
+            // Check if sessions for these dates already exist (by startTime and defaultSession flag)
+            const sessionsSnap = await db.ref('sessions').once('value');
+            const sessions = sessionsSnap.val() || {};
+            const existingDates = new Set();
+            Object.values(sessions).forEach(s => {
+                if (s && s.defaultSession && dates.includes(s.startTime)) {
+                    existingDates.add(s.startTime);
+                }
+            });
             for (const date of dates) {
-                // Create a session for each date
-                const sessionRef = db.ref('sessions').push();
-                const sessionId = sessionRef.key;
-                await sessionRef.set({
-                    token: Math.random().toString(36).substring(2, 11),
-                    startTime: date,
-                    endTime: date + 60 * 60 * 1000, // 1 hour session
-                    active: false,
-                    adminLat: 0,
-                    adminLng: 0,
-                    adminDeviceId: 'default',
-                    defaultSession: true
-                });
-                // Add attendance for all users (except admin)
-                for (const [uid, user] of Object.entries(users)) {
-                    if (user.role !== 'admin') {
-                        await db.ref(`attendance/${sessionId}/${uid}`).set({
-                            timestamp: date + Math.floor(Math.random() * 1800000), // random time within 30 min
-                            deviceId: 'default',
-                            lat: '',
-                            lng: '',
-                            ip: ''
-                        });
+                if (!existingDates.has(date)) {
+                    // Create a session for this date
+                    const sessionRef = db.ref('sessions').push();
+                    const sessionId = sessionRef.key;
+                    await sessionRef.set({
+                        token: Math.random().toString(36).substring(2, 11),
+                        startTime: date,
+                        endTime: date + 60 * 60 * 1000, // 1 hour session
+                        active: false,
+                        adminLat: 0,
+                        adminLng: 0,
+                        adminDeviceId: 'default',
+                        defaultSession: true
+                    });
+                    // Add attendance for all users (except admin)
+                    for (const [uid, user] of Object.entries(users)) {
+                        if (user.role !== 'admin') {
+                            await db.ref(`attendance/${sessionId}/${uid}`).set({
+                                timestamp: date + Math.floor(Math.random() * 1800000), // random time within 30 min
+                                deviceId: 'default',
+                                lat: '',
+                                lng: '',
+                                ip: ''
+                            });
+                        }
                     }
                 }
             }
-            alert('Default attendance added for all users for the specified dates.');
         }
     </script>
 </body>
