@@ -429,42 +429,54 @@
 
         // Show modal with department attendance table
         async function viewDepartmentAttendance(department) {
-            const db = firebase.database();
-            const usersSnap = await db.ref('users').once('value');
-            const users = usersSnap.val() || {};
-            const attendanceSnap = await db.ref('attendance').once('value');
-            const allAttendance = attendanceSnap.val() || {};
-            // Build attendance records for this department
-            const records = [];
-            Object.entries(allAttendance).forEach(([sessionId, sessionAttendance]) => {
-                Object.entries(sessionAttendance).forEach(([uid, record]) => {
-                    const user = users[uid];
-                    if (user && user.department === department) {
-                        records.push({
-                            matricNo: user.matricNo || '',
-                            name: user.name || '',
-                            email: user.email || '',
-                            timestamp: record.timestamp ? new Date(record.timestamp).toLocaleString() : '',
-                            lat: record.lat || '',
-                            lng: record.lng || ''
-                        });
-                    }
+            try {
+                console.log('Viewing attendance for department:', department);
+                const db = firebase.database();
+                const usersSnap = await db.ref('users').once('value');
+                const users = usersSnap.val() || {};
+                const attendanceSnap = await db.ref('attendance').once('value');
+                const allAttendance = attendanceSnap.val() || {};
+                console.log('Users:', users);
+                console.log('Attendance:', allAttendance);
+                
+                // Build attendance records for this department
+                const records = [];
+                Object.entries(allAttendance).forEach(([sessionId, sessionAttendance]) => {
+                    if (!sessionAttendance) return;
+                    Object.entries(sessionAttendance).forEach(([uid, record]) => {
+                        const user = users[uid];
+                        console.log('Checking user:', uid, user, 'department:', user?.department);
+                        if (user && user.department === department) {
+                            records.push({
+                                matricNo: user.matricNo || '',
+                                name: user.name || '',
+                                email: user.email || '',
+                                timestamp: record.timestamp ? new Date(record.timestamp).toLocaleString() : '',
+                                lat: record.lat || '',
+                                lng: record.lng || ''
+                            });
+                        }
+                    });
                 });
-            });
-            // Build table HTML
-            let table = `<table style='width:100%; border-collapse:collapse; background:#333; color:#fff;'>`;
-            table += `<tr style='background:#444;'><th>Matric No</th><th>Name</th><th>Email</th><th>Date/Time</th><th>Latitude</th><th>Longitude</th></tr>`;
-            if (records.length === 0) {
-                table += `<tr><td colspan='6' style='text-align:center; color:#aaa;'>No attendance records for this department.</td></tr>`;
-            } else {
-                records.forEach(r => {
-                    table += `<tr><td>${r.matricNo}</td><td>${r.name}</td><td>${r.email}</td><td>${r.timestamp}</td><td>${r.lat}</td><td>${r.lng}</td></tr>`;
-                });
+                console.log('Records found:', records.length);
+                // Build table HTML
+                let table = `<table style='width:100%; border-collapse:collapse; background:#333; color:#fff;'>`;
+                table += `<tr style='background:#444;'><th>Matric No</th><th>Name</th><th>Email</th><th>Date/Time</th><th>Latitude</th><th>Longitude</th></tr>`;
+                if (records.length === 0) {
+                    table += `<tr><td colspan='6' style='text-align:center; color:#aaa;'>No attendance records for this department.</td></tr>`;
+                } else {
+                    records.forEach(r => {
+                        table += `<tr><td>${r.matricNo}</td><td>${r.name}</td><td>${r.email}</td><td>${r.timestamp}</td><td>${r.lat}</td><td>${r.lng}</td></tr>`;
+                    });
+                }
+                table += `</table>`;
+                document.getElementById('modalDepartmentTitle').textContent = `Attendance for ${department}`;
+                document.getElementById('departmentAttendanceTable').innerHTML = table;
+                document.getElementById('departmentAttendanceModal').style.display = 'flex';
+            } catch (error) {
+                console.error('Error viewing department attendance:', error);
+                alert('Error loading attendance: ' + error.message);
             }
-            table += `</table>`;
-            document.getElementById('modalDepartmentTitle').textContent = `Attendance for ${department}`;
-            document.getElementById('departmentAttendanceTable').innerHTML = table;
-            document.getElementById('departmentAttendanceModal').style.display = 'flex';
         }
 
         function closeDepartmentAttendanceModal() {
@@ -473,41 +485,55 @@
 
         // Download department attendance as CSV
         async function downloadDepartmentAttendance(department) {
-            const db = firebase.database();
-            const usersSnap = await db.ref('users').once('value');
-            const users = usersSnap.val() || {};
-            const attendanceSnap = await db.ref('attendance').once('value');
-            const allAttendance = attendanceSnap.val() || {};
-            // Build attendance records for this department
-            const records = [];
-            Object.entries(allAttendance).forEach(([sessionId, sessionAttendance]) => {
-                Object.entries(sessionAttendance).forEach(([uid, record]) => {
-                    const user = users[uid];
-                    if (user && user.department === department) {
-                        records.push({
-                            matricNo: user.matricNo || '',
-                            name: user.name || '',
-                            email: user.email || '',
-                            timestamp: record.timestamp ? new Date(record.timestamp).toLocaleString() : '',
-                            lat: record.lat || '',
-                            lng: record.lng || ''
-                        });
-                    }
+            try {
+                console.log('Downloading attendance for department:', department);
+                const db = firebase.database();
+                const usersSnap = await db.ref('users').once('value');
+                const users = usersSnap.val() || {};
+                const attendanceSnap = await db.ref('attendance').once('value');
+                const allAttendance = attendanceSnap.val() || {};
+                
+                // Build attendance records for this department
+                const records = [];
+                Object.entries(allAttendance).forEach(([sessionId, sessionAttendance]) => {
+                    if (!sessionAttendance) return;
+                    Object.entries(sessionAttendance).forEach(([uid, record]) => {
+                        const user = users[uid];
+                        if (user && user.department === department) {
+                            records.push({
+                                matricNo: user.matricNo || '',
+                                name: user.name || '',
+                                email: user.email || '',
+                                timestamp: record.timestamp ? new Date(record.timestamp).toLocaleString() : '',
+                                lat: record.lat || '',
+                                lng: record.lng || ''
+                            });
+                        }
+                    });
                 });
-            });
-            let csv = 'Matric No,Name,Email,Date/Time,Latitude,Longitude\n';
-            records.forEach(r => {
-                csv += `${r.matricNo},${r.name},${r.email},${r.timestamp},${r.lat},${r.lng}\n`;
-            });
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `attendance_${department.replace(/\s+/g, '_')}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+                
+                if (records.length === 0) {
+                    alert('No attendance records found for this department.');
+                    return;
+                }
+                
+                let csv = 'Matric No,Name,Email,Date/Time,Latitude,Longitude\n';
+                records.forEach(r => {
+                    csv += `${r.matricNo},${r.name},${r.email},${r.timestamp},${r.lat},${r.lng}\n`;
+                });
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `attendance_${department.replace(/\s+/g, '_')}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error downloading department attendance:', error);
+                alert('Error downloading attendance: ' + error.message);
+            }
         }
 
         // Download attendance as CSV
@@ -752,41 +778,59 @@
             const db = firebase.database();
             const usersSnap = await db.ref('users').once('value');
             const users = usersSnap.val() || {};
-            // Dates: 27th March 2026, 10th April 2026, 17th April 2026
+            
+            // Use explicit timestamps for the 3 dates
+            // 27th March 2026, 10th April 2026, 17th April 2026 at 9:00 AM
             const dates = [
-                new Date('2026-03-27T09:00:00').getTime(),
-                new Date('2026-04-10T09:00:00').getTime(),
-                new Date('2026-04-17T09:00:00').getTime()
+                { date: new Date(2026, 2, 27, 9, 0, 0).getTime(), label: 'March 27, 2026' },
+                { date: new Date(2026, 3, 10, 9, 0, 0).getTime(), label: 'April 10, 2026' },
+                { date: new Date(2026, 3, 17, 9, 0, 0).getTime(), label: 'April 17, 2026' }
             ];
+            
+            console.log('Adding default attendance for dates:', dates.map(d => d.label));
+            
             // Check if sessions for these dates already exist (by startTime and defaultSession flag)
             const sessionsSnap = await db.ref('sessions').once('value');
             const sessions = sessionsSnap.val() || {};
             const existingDates = new Set();
             Object.values(sessions).forEach(s => {
-                if (s && s.defaultSession && dates.includes(s.startTime)) {
-                    existingDates.add(s.startTime);
+                if (s && s.defaultSession) {
+                    dates.forEach(d => {
+                        if (s.startTime === d.date) {
+                            existingDates.add(d.date);
+                        }
+                    });
                 }
             });
-            for (const date of dates) {
-                if (!existingDates.has(date)) {
+            
+            console.log('Existing default dates:', existingDates);
+            
+            for (const d of dates) {
+                if (!existingDates.has(d.date)) {
+                    console.log('Creating session for:', d.label);
                     // Create a session for this date
                     const sessionRef = db.ref('sessions').push();
                     const sessionId = sessionRef.key;
                     await sessionRef.set({
                         token: Math.random().toString(36).substring(2, 11),
-                        startTime: date,
-                        endTime: date + 60 * 60 * 1000, // 1 hour session
+                        startTime: d.date,
+                        endTime: d.date + 60 * 60 * 1000, // 1 hour session
                         active: false,
                         adminLat: 0,
                         adminLng: 0,
                         adminDeviceId: 'default',
-                        defaultSession: true
+                        defaultSession: true,
+                        topic: d.label
                     });
+                    
                     // Add attendance for all users (except admin)
+                    const userCount = Object.entries(users).filter(([uid, user]) => user.role !== 'admin').length;
+                    console.log(`Adding attendance for ${userCount} users for ${d.label}`);
+                    
                     for (const [uid, user] of Object.entries(users)) {
                         if (user.role !== 'admin') {
                             await db.ref(`attendance/${sessionId}/${uid}`).set({
-                                timestamp: date + Math.floor(Math.random() * 1800000), // random time within 30 min
+                                timestamp: d.date + Math.floor(Math.random() * 1800000), // random time within 30 min
                                 deviceId: 'default',
                                 lat: '',
                                 lng: '',
@@ -796,6 +840,7 @@
                     }
                 }
             }
+            console.log('Default attendance setup complete');
         }
     </script>
 </body>
