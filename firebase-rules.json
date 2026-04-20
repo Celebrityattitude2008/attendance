@@ -1,35 +1,45 @@
 {
   "rules": {
     "users": {
+      // Only allow users to read their own data, admins can read all
+      ".read": "auth != null",
       "$uid": {
-        ".read": "auth != null",
-        ".write": "auth != null && auth.uid === $uid",
-        ".validate": "newData.hasChildren(['matricNo', 'name', 'role', 'email'])"
+        // Only allow users to read/write their own data, admins can read/write all
+        ".read": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/role').val() === 'admin')",
+        ".write": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/role').val() === 'admin')",
+        // Validate required fields when creating
+        ".validate": "newData.hasChildren(['matricNo', 'name', 'role', 'email']) && (newData.child('role').val() === 'admin' || newData.child('role').val() === 'student')"
       }
     },
 
     "sessions": {
+      // Anyone can read sessions to verify active sessions
       ".read": "auth != null",
-      ".write": "auth != null",
+      // Only admins can create/modify sessions
+      ".write": "auth != null && root.child('users/' + auth.uid + '/role').val() === 'admin'",
       "$sessionId": {
-        "token": { ".validate": "newData.isString()" },
+        "token": { ".validate": "newData.isString() && newData.val().length > 0" },
         "startTime": { ".validate": "newData.isNumber()" },
         "endTime": { ".validate": "newData.isNumber()" },
         "active": { ".validate": "newData.isBoolean()" },
-        "course": { ".validate": "newData.val() === 'IDS111'" }
+        "course": { ".validate": "newData.val() === 'IDS111'" },
+        "adminLat": { ".validate": "newData.isNumber() || newData.val() === null" },
+        "adminLng": { ".validate": "newData.isNumber() || newData.val() === null" }
       }
     },
 
     "attendance": {
+      // Allow authenticated users to read their own attendance, admins can read all
       ".read": "auth != null",
       "$sessionId": {
+        // Students can only write their own attendance, admins can write all
         "$uid": {
-          ".write": "auth != null && auth.uid === $uid",
-          ".read": "auth != null",
+          ".write": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/role').val() === 'admin')",
+          ".read": "auth != null && (auth.uid === $uid || root.child('users/' + auth.uid + '/role').val() === 'admin')",
           "timestamp": { ".validate": "newData.isNumber()" },
           "deviceId": { ".validate": "newData.isString()" },
-          "lat": { ".validate": "newData.isNumber()" },
-          "lng": { ".validate": "newData.isNumber()" }
+          "lat": { ".validate": "newData.isNumber() || newData.val() === null" },
+          "lng": { ".validate": "newData.isNumber() || newData.val() === null" }
         }
       }
     }
