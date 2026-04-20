@@ -2,42 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IDS 111 Attendance - Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
-        .skeleton-text { height: 16px; margin-bottom: 8px; }
-        .skeleton-box { height: 100px; margin-bottom: 10px; }
-        .skeleton-btn { height: 40px; width: 120px; display: inline-block; margin-right: 10px; }
-        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
-        .fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
-        .slide-in { animation: slideIn 0.4s ease-out forwards; }
-        .pulse { animation: pulse 2s infinite; }
-        #map { height: 350px; width: 100%; border-radius: 10px; margin-top: 15px; }
-        .map-legend { display: flex; gap: 15px; margin-top: 10px; font-size: 13px; }
-        .legend-item { display: flex; align-items: center; gap: 5px; }
-        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
-        .legend-dot.admin { background: #e74c3c; }
-        .legend-dot.user { background: #3498db; }
-        @media (max-width: 600px) {
-            .container { padding: 20px; margin: 10px; }
-            .dashboard-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-            .dashboard-header h1 { font-size: 20px !important; }
-            .logout-btn { width: 100%; }
-            .session-control { padding: 15px; }
-            .department-card { min-width: 100% !important; max-width: 100% !important; }
-            #map { height: 250px; }
-            .map-legend { flex-wrap: wrap; }
-        }
-    </style>
+    <title>Dashboard Test</title>
 </head>
 <body>
-    <div class="container">
+    <h1>Dashboard Minimal Test</h1>
+    <p>If you see this, the file is loading correctly and there are no syntax errors.</p>
+</body>
+</html>
         <div class="dashboard-header fade-in-up">
             <div>
                 <h1 style="margin: 0; text-align: left; font-size: 24px;">Dashboard</h1>
@@ -139,8 +110,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
-    <!-- QRCode script must be loaded BEFORE dashboard logic -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- QRCode library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script src="auth.js"></script>
     <script>
         let currentUser = null;
@@ -624,35 +595,21 @@
             const qrToken = currentSession.token;
             const qrContainer = document.getElementById('qrCode');
             
-            if (typeof QRCode !== 'undefined') {
+            if (typeof QRCode !== 'undefined' && typeof QRCode.toDataURL === 'function') {
                 // Clear previous QR code
                 qrContainer.src = '';
                 qrContainer.alt = 'Generating...';
                 
-                // Use qrcodejs library - creates QR in a hidden canvas and extracts data URL
-                const tempDiv = document.createElement('div');
                 try {
-                    new QRCode(tempDiv, {
-                        text: qrToken,
-                        width: 256,
-                        height: 256
-                    });
-                    
-                    // Wait a moment for QR code to render, then extract image
-                    setTimeout(() => {
-                        const canvas = tempDiv.querySelector('canvas');
-                        if (canvas) {
-                            qrContainer.src = canvas.toDataURL('image/png');
-                            qrContainer.alt = 'QR Code';
+                    QRCode.toDataURL(qrToken, { width: 256, margin: 1 }, (err, url) => {
+                        if (err) {
+                            console.error('QR Code generation error:', err, 'Token:', qrToken);
+                            qrContainer.alt = 'QR generation failed';
                         } else {
-                            // Fallback to img tag if using img tag
-                            const img = tempDiv.querySelector('img');
-                            if (img) {
-                                qrContainer.src = img.src;
-                                qrContainer.alt = 'QR Code';
-                            }
+                            qrContainer.src = url;
+                            qrContainer.alt = 'QR Code';
                         }
-                    }, 100);
+                    });
                 } catch (err) {
                     console.error('QR Code generation error:', err, 'Token:', qrToken);
                     qrContainer.alt = 'QR generation failed';
