@@ -140,7 +140,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
     <!-- QRCode script must be loaded BEFORE dashboard logic -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="auth.js"></script>
     <script>
         let currentUser = null;
@@ -622,18 +622,43 @@
 
             // QR code now encodes only the session token
             const qrToken = currentSession.token;
+            const qrContainer = document.getElementById('qrCode');
+            
             if (typeof QRCode !== 'undefined') {
-                QRCode.toDataURL(qrToken, (err, url) => {
-                    if (err) {
-                        console.error('QR Code generation error:', err, 'Token:', qrToken);
-                        document.getElementById('qrCode').alt = 'QR generation failed';
-                    } else {
-                        document.getElementById('qrCode').src = url;
-                        document.getElementById('qrCode').alt = 'QR Code';
-                    }
-                });
+                // Clear previous QR code
+                qrContainer.src = '';
+                qrContainer.alt = 'Generating...';
+                
+                // Use qrcodejs library - creates QR in a hidden canvas and extracts data URL
+                const tempDiv = document.createElement('div');
+                try {
+                    new QRCode(tempDiv, {
+                        text: qrToken,
+                        width: 256,
+                        height: 256
+                    });
+                    
+                    // Wait a moment for QR code to render, then extract image
+                    setTimeout(() => {
+                        const canvas = tempDiv.querySelector('canvas');
+                        if (canvas) {
+                            qrContainer.src = canvas.toDataURL('image/png');
+                            qrContainer.alt = 'QR Code';
+                        } else {
+                            // Fallback to img tag if using img tag
+                            const img = tempDiv.querySelector('img');
+                            if (img) {
+                                qrContainer.src = img.src;
+                                qrContainer.alt = 'QR Code';
+                            }
+                        }
+                    }, 100);
+                } catch (err) {
+                    console.error('QR Code generation error:', err, 'Token:', qrToken);
+                    qrContainer.alt = 'QR generation failed';
+                }
             } else {
-                document.getElementById('qrCode').alt = 'QR Code library not loaded';
+                qrContainer.alt = 'QR Code library not loaded';
                 console.error('QRCode.js is not loaded!');
             }
         }
