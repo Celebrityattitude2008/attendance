@@ -15,6 +15,7 @@
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
         .fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
         .slide-in { animation: slideIn 0.4s ease-out forwards; }
         .pulse { animation: pulse 2s infinite; }
@@ -139,6 +140,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-messaging-compat.js"></script>
     <!-- QRCode library -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <script src="auth.js"></script>
@@ -148,6 +150,131 @@
         let map = null;
         let userMarkers = {};
         let adminMarker = null;
+        let messaging = null;
+
+        async function initNotifications() {
+            try {
+                if (typeof firebase.messaging !== 'undefined') {
+                    messaging = firebase.messaging();
+                    
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        console.log('Notification permission granted');
+                        
+                        const token = await messaging.getToken({
+                            vapidKey: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
+                        });
+                        console.log('FCM Token:', token);
+                        
+                        if (currentUser) {
+                            const db = firebase.database();
+                            await db.ref(`users/${currentUser.uid}/fcmToken`).set(token);
+                        }
+                        
+                        // Handle incoming messages
+                        messaging.onMessage((payload) => {
+                            console.log('Foreground message received:', payload);
+                            showNotification(payload);
+                        });
+                        
+                        // Schedule weekly Friday notification
+                        scheduleFridayNotification();
+                    } else {
+                        console.log('Notification permission denied');
+                    }
+                }
+            } catch (error) {
+                console.error('Error initializing notifications:', error);
+            }
+        }
+
+        // Show notification in the app
+        function showNotification(payload) {
+            const title = payload.notification?.title || 'Attendance Reminder';
+            const body = payload.notification?.body || 'Time to check your attendance!';
+            
+            // Create a custom notification UI element
+            const notificationDiv = document.createElement('div');
+            notificationDiv.id = 'appNotification';
+            notificationDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 20px 25px;
+                border-radius: 12px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                z-index: 10000;
+                max-width: 350px;
+                animation: slideInRight 0.3s ease-out;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            `;
+            notificationDiv.innerHTML = `
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">🔔 ${title}</div>
+                <div style="font-size: 14px; opacity: 0.9;">${body}</div>
+                <button onclick="this.parentElement.remove()" style="
+                    margin-top: 12px;
+                    background: rgba(255,255,255,0.2);
+                    border: none;
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 13px;
+                ">Dismiss</button>
+            `;
+            document.body.appendChild(notificationDiv);
+            
+            // Auto-remove after 10 seconds
+            setTimeout(() => {
+                if (notificationDiv.parentElement) {
+                    notificationDiv.remove();
+                }
+            }, 10000);
+        }
+
+        // Schedule notification for Friday at 12:00 noon
+        function scheduleFridayNotification() {
+            // Check every minute if it's Friday at 12:00
+            setInterval(() => {
+                const now = new Date();
+                const dayOfWeek = now.getDay(); // 0 = Sunday, 5 = Friday
+                const hours = now.getHours();
+                const minutes = now.getMinutes();
+                
+                // Check if it's Friday (day 5) and time is 12:00 PM
+                if (dayOfWeek === 5 && hours === 12 && minutes === 0) {
+                    showNotification({
+                        notification: {
+                            title: '📅 Friday Attendance Check',
+                            body: 'It\'s Friday! Don\'t forget to mark your attendance and review your weekly attendance record.'
+                        }
+                    });
+                    
+                    // Also try to send push notification
+                    if (messaging) {
+                        sendPushNotification();
+                    }
+                }
+            }, 60000); // Check every minute
+        }
+
+        // Send push notification via Firebase (requires server-side for actual push)
+        async function sendPushNotification() {
+            try {
+                const db = firebase.database();
+                // Store notification request in database
+                await db.ref('notifications').push({
+                    type: 'friday_reminder',
+                    scheduledFor: Date.now(),
+                    sent: false
+                });
+                console.log('Push notification scheduled');
+            } catch (error) {
+                console.error('Error scheduling push notification:', error);
+            }
+        }
 
         // Check auth state
         firebase.auth().onAuthStateChanged(async user => {
@@ -164,6 +291,11 @@
 
             document.getElementById('userInfo').textContent = 
                 (userData?.role === 'admin' ? 'Admin' : 'Student') + ' - ' + (userData?.name || user.email);
+
+            // Initialize push notifications (for non-admin users)
+            if (userData?.role !== 'admin') {
+                initNotifications();
+            }
 
             // Hide skeleton, show content
             document.getElementById('skeletonLoader').style.display = 'none';
@@ -236,22 +368,62 @@
                 const attendanceRef = db.ref('attendance');
                 const snapshot = await attendanceRef.once('value');
                 const allAttendance = snapshot.val() || {};
+                
+                // Get sessions info for more details
+                const sessionsSnap = await db.ref('sessions').once('value');
+                const sessions = sessionsSnap.val() || {};
 
                 const history = [];
-                Object.values(allAttendance).forEach(session => {
+                Object.entries(allAttendance).forEach(([sessionId, session]) => {
                     if (session && session[currentUser.uid]) {
                         const record = session[currentUser.uid];
+                        const sessionInfo = sessions[sessionId] || {};
                         history.push({
+                            sessionId: sessionId,
                             date: new Date(record.timestamp).toLocaleDateString(),
-                            time: new Date(record.timestamp).toLocaleTimeString()
+                            time: new Date(record.timestamp).toLocaleTimeString(),
+                            fullDate: new Date(record.timestamp),
+                            sessionDate: sessionInfo.startTime ? new Date(sessionInfo.startTime).toLocaleDateString() : 'Unknown'
                         });
                     }
                 });
 
+                // Sort by date (newest first)
+                history.sort((a, b) => b.fullDate - a.fullDate);
+
                 const historyDiv = document.getElementById('attendanceHistory');
-                historyDiv.innerHTML = history.length > 0 
-                    ? history.map(h => `<div class="attendance-item">✓ ${h.date} at ${h.time}</div>`).join('')
-                    : '<p style="color: #999;">No attendance records yet</p>';
+                
+                if (history.length > 0) {
+                    // Group by month for better organization
+                    const groupedByMonth = {};
+                    history.forEach(h => {
+                        const monthKey = h.fullDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+                        if (!groupedByMonth[monthKey]) {
+                            groupedByMonth[monthKey] = [];
+                        }
+                        groupedByMonth[monthKey].push(h);
+                    });
+                    
+                    let html = `<div style="margin-bottom: 15px; color: #4e8cff; font-weight: bold;">Total Attendance: ${history.length} sessions</div>`;
+                    
+                    for (const [month, records] of Object.entries(groupedByMonth)) {
+                        html += `<div style="margin-top: 15px;"><strong style="color: #aaa;">${month}</strong></div>`;
+                        records.forEach(h => {
+                            html += `<div class="attendance-item" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; margin: 8px 0; background: #2a2a2a; border-radius: 8px; border-left: 4px solid #43a047;">
+                                <div>
+                                    <span style="color: #43a047; font-size: 18px;">✓</span>
+                                    <span style="font-weight: bold; color: #fff;">${h.date}</span>
+                                </div>
+                                <div style="color: #aaa; font-size: 13px;">
+                                    ${h.time}
+                                </div>
+                            </div>`;
+                        });
+                    }
+                    historyDiv.innerHTML = html;
+                } else {
+                    historyDiv.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No attendance records yet</p>';
+                }
                 
                 // Enable download button for student's own attendance
                 document.getElementById('downloadMyAttendanceBtn').onclick = () => downloadMyAttendance(history);
@@ -384,10 +556,12 @@
                     startMapPolling();
                     // Enable download buttons
                     document.getElementById('downloadAttendanceBtn').onclick = downloadAttendanceCSV;
-                    document.getElementById('downloadAllAttendanceBtn').onclick = downloadAllAttendanceCSV;
                 } else {
                     displayNoSession();
                 }
+                
+                // Always enable "Download All Attendance" button (works even without active session)
+                document.getElementById('downloadAllAttendanceBtn').onclick = downloadAllAttendanceCSV;
 
                 // Load department attendance cards (lazy loaded)
                 setTimeout(async () => {
