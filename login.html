@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>University Attendance - Login</title>
+    <title>Attendance - Login</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -99,7 +99,7 @@
                     await ensureAdminAccount();
                     console.log('Admin login successful, redirecting...');
                     // Already signed in, redirect
-                    window.location.href = 'dashboard';
+                    window.location.href = 'dashboard.html';
                     return;
                 } else {
                     if (!password) {
@@ -109,7 +109,7 @@
                     // Check if this is the test account
                     if (matricNo.toLowerCase() === 'test001' && password === 'Test@123') {
                         await ensureTestAccount();
-                        window.location.href = 'dashboard';
+                        window.location.href = 'dashboard.html';
                         return;
                     }
                     
@@ -124,7 +124,7 @@
                 const name = loginType === 'admin' ? 'Administrator' : '';
                 await ensureUserRecord(userCredential.user, role, name);
                 
-                window.location.href = 'dashboard';
+                window.location.href = 'dashboard.html';
             } catch (error) {
                 console.error('Login error:', error);
                 // Show more detailed error
@@ -145,3 +145,4 @@
     </script>
 </body>
 </html>
+
