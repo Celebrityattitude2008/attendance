@@ -3,43 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IDS 111 Attendance - Login</title>
+    <title>University Attendance - Login</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>IDS 111 Attendance Portal</h1>
-        <h2>Login</h2>
-
-        <div class="error-message" id="errorMessage"></div>
-
-        <form id="loginForm" onsubmit="handleLogin(event)">
-            <div class="form-group">
-                <label for="loginType">Login As:</label>
-                <select id="loginType" name="loginType" onchange="updateLoginForm()">
-                    <option value="student">Student</option>
-                    <option value="admin">Admin</option>
-                </select>
+    <div class="page-wrapper">
+        <div class="card">
+            <div class="card-header">
+                <div class="icon-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                </div>
+                <h1>University Attendance</h1>
+                <p>Sign in to continue</p>
             </div>
 
-            <div class="form-group">
-                <label for="matricNo">Matric Number</label>
-                <input id="matricNo" name="matricNo" type="text" placeholder="e.g., BIU/2023 or SCN/CSC" required>
+            <div class="role-toggle">
+                <button type="button" id="studentBtn" class="role-btn active" onclick="setRole('student')">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Student
+                </button>
+                <button type="button" id="adminBtn" class="role-btn admin" onclick="setRole('admin')">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    Admin
+                </button>
             </div>
 
-            <div class="form-group" id="passwordGroup">
-                <label for="password">Password</label>
-                <input id="password" name="password" type="password" placeholder="Enter password">
+            <div class="error-message" id="errorMessage"></div>
+
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="matricNo">Matric Number</label>
+                    <input id="matricNo" name="matricNo" type="text" placeholder="e.g., BIU/2023 or SCN/CSC" required>
+                </div>
+
+                <div class="form-group" id="passwordGroup">
+                    <label for="password">Password</label>
+                    <input id="password" name="password" type="password" placeholder="Enter password">
+                </div>
+
+                <button type="submit" class="btn-primary">Sign In</button>
+            </form>
+
+            <div class="divider">
+                <span>or</span>
             </div>
 
-            <button type="submit">Login</button>
-        </form>
-
-        <div class="divider">
-            <span>or</span>
+            <div class="links">
+                <a onclick="goToRegister()">Don't have an account? Register</a>
+            </div>
         </div>
-
-        <button type="button" onclick="goToRegister()" class="btn-admin">Create Account</button>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
@@ -47,84 +59,22 @@
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
     <script src="auth.js"></script>
     <script>
-        // Wait for auth.js to load
-        window.onload = function() {
-            console.log('auth.js loaded, ensureAdminAccount:', typeof ensureAdminAccount);
-            console.log('firebase:', typeof firebase);
-        };
+        let currentRole = 'student';
         
-        // Inline ensureAdminAccount function - use Google sign-in
-        async function ensureAdminAccount() {
-            const adminEmail = 'pauladamu600@gmail.com';
-            
-            try {
-                // Use Google auth provider
-                const provider = new firebase.auth.GoogleAuthProvider();
-                provider.addScope('email');
-                provider.addScope('profile');
-                
-                const result = await firebase.auth().signInWithPopup(provider);
-                console.log('Google sign-in successful:', result.user.email);
-                
-                // Check if it's the correct admin email
-                if (result.user.email.toLowerCase() !== adminEmail.toLowerCase()) {
-                    await firebase.auth().signOut();
-                    throw new Error('Not authorized. Only ' + adminEmail + ' can access admin.');
-                }
-                
-                // Create admin user record
-                const db = firebase.database();
-                await db.ref(`users/${result.user.uid}`).set({
-                    matricNo: 'admin',
-                    name: result.user.displayName || 'Administrator',
-                    email: result.user.email,
-                    role: 'admin'
-                });
-                console.log('Admin user record created');
-                return result.user;
-            } catch (error) {
-                console.error('Admin login error:', error);
-                throw error;
-            }
-        }
-        
-        async function ensureTestAccount() {
-            try {
-                const userCredential = await firebase.auth().signInWithEmailAndPassword('test001@ids111.com', 'Test@123');
-                await ensureUserRecord(userCredential.user, 'student', 'Test Student');
-                return userCredential.user;
-            } catch (error) {
-                if (error.code === 'auth/user-not-found' || error.message.includes('user-not-found')) {
-                    try {
-                        const result = await firebase.auth().createUserWithEmailAndPassword('test001@ids111.com', 'Test@123');
-                        const db = firebase.database();
-                        await db.ref(`users/${result.user.uid}`).set({
-                            matricNo: 'test001',
-                            name: 'Test Student',
-                            email: 'test001@ids111.com',
-                            role: 'student',
-                            department: 'Computer Science'
-                        });
-                        return result.user;
-                    } catch (createError) {
-                        console.error('Failed to create test account:', createError);
-                        throw createError;
-                    }
-                }
-                console.error('Test account error:', error);
-                throw error;
-            }
-        }
-    </script>
-    <script>
-        function updateLoginForm() {
-            const loginType = document.getElementById('loginType').value;
+        function setRole(role) {
+            currentRole = role;
+            const studentBtn = document.getElementById('studentBtn');
+            const adminBtn = document.getElementById('adminBtn');
             const passwordGroup = document.getElementById('passwordGroup');
             
-            if (loginType === 'admin') {
-                passwordGroup.style.display = 'none';
-            } else {
+            if (role === 'student') {
+                studentBtn.classList.add('active');
+                adminBtn.classList.remove('active');
                 passwordGroup.style.display = 'block';
+            } else {
+                studentBtn.classList.remove('active');
+                adminBtn.classList.add('active');
+                passwordGroup.style.display = 'none';
             }
         }
 
@@ -134,7 +84,7 @@
 
         async function handleLogin(event) {
             event.preventDefault();
-            const loginType = document.getElementById('loginType').value;
+            const loginType = currentRole;
             const matricNo = document.getElementById('matricNo').value.trim();
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('errorMessage');
@@ -146,7 +96,6 @@
 
                 if (loginType === 'admin') {
                     console.log('Starting admin login with Google...');
-                    // Ensure admin account exists and sign in
                     await ensureAdminAccount();
                     console.log('Admin login successful, redirecting...');
                     // Already signed in, redirect

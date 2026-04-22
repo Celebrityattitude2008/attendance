@@ -3,55 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IDS 111 Attendance - Register</title>
+    <title>University Attendance - Register</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>IDS 111 Attendance Portal</h1>
-        <h2>Register</h2>
-
-        <div class="error-message" id="errorMessage"></div>
-
-        <form id="registerForm" onsubmit="handleRegister(event)">
-            <div class="form-group">
-                <label for="regName">Full Name</label>
-                <input id="regName" name="regName" type="text" required>
+    <div class="page-wrapper">
+        <div class="card">
+            <div class="card-header">
+                <div class="icon-container indigo">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+                </div>
+                <h1>Create Account</h1>
+                <p>Join the attendance system</p>
             </div>
 
-            <div class="form-group">
-                <label for="regMatricNo">Matric Number</label>
-                <input id="regMatricNo" name="regMatricNo" type="text" placeholder="e.g., BIU/2023" required>
+            <div class="error-message" id="errorMessage"></div>
+
+            <form id="registerForm" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="regName">Full Name</label>
+                    <input id="regName" name="regName" type="text" placeholder="John Doe" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="regMatricNo">Matric Number</label>
+                    <input id="regMatricNo" name="regMatricNo" type="text" placeholder="e.g., BIU/2023" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="regDepartment">Department</label>
+                    <select id="regDepartment" name="regDepartment" required>
+                        <option value="">Select Department</option>
+                        <option value="Computer Science">Computer Science</option>
+                        <option value="Nursing">Nursing</option>
+                        <option value="Medicine and Surgery">Medicine and Surgery</option>
+                        <option value="Med Lab">Med Lab</option>
+                        <option value="Agric">Agric</option>
+                        <option value="Engineering">Engineering</option>
+                        <option value="Anatomy">Anatomy</option>
+                        <option value="Bio Chemistry">Bio Chemistry</option>
+                        <option value="Micro Biology">Micro Biology</option>
+                        <option value="Geo Physics">Geo Physics</option>
+                        <option value="Physiology">Physiology</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="regPassword">Password</label>
+                    <input id="regPassword" name="regPassword" type="password" placeholder="At least 6 characters" required>
+                </div>
+
+                <button type="submit" class="btn-primary">Create Account</button>
+            </form>
+
+            <div class="links">
+                <a onclick="goToLogin()">← Back to Login</a>
             </div>
-
-            <div class="form-group">
-                <label for="regDepartment">Department</label>
-                <select id="regDepartment" name="regDepartment" required>
-                    <option value="">Select Department</option>
-                    <option value="Computer Science">Computer Science</option>
-                    <option value="Nursing">Nursing</option>
-                    <option value="Medicine and Surgery">Medicine and Surgery</option>
-                    <option value="Med Lab">Med Lab</option>
-                    <option value="Agric">Agric</option>
-                    <option value="Engineering">Engineering</option>
-                    <option value="Anatomy">Anatomy</option>
-                    <option value="Bio Chemistry">Bio Chemistry</option>
-                    <option value="Micro Biology">Micro Biology</option>
-                    <option value="Geo Physics">Geo Physics</option>
-                    <option value="Physiology">Physiology</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="regPassword">Password</label>
-                <input id="regPassword" name="regPassword" type="password" placeholder="At least 6 characters" required>
-            </div>
-
-            <button type="submit">Register</button>
-        </form>
-
-        <div class="links" style="margin-top: 20px;">
-            <a onclick="goToLogin()">← Back to Login</a>
         </div>
     </div>
 
@@ -61,7 +68,7 @@
     <script src="auth.js"></script>
     <script>
         function goToLogin() {
-            window.location.href = 'login';
+            window.location.href = 'login.html';
         }
 
         async function handleRegister(event) {
