@@ -53,12 +53,12 @@ async function ensureUserRecord(user, role, name) {
 
 // Check if user is admin based on email
 function isAdminEmail(email) {
-    return email && email.toLowerCase() === 'admin@ids111.com';
+    return email && email.toLowerCase() === 'pauladamu600@gmail.com';
 }
 
 // Create admin account if it doesn't exist and return the user
 async function ensureAdminAccount() {
-    const adminEmail = 'admin@ids111.com';
+    const adminEmail = 'pauladamu600@gmail.com';
     const adminPassword = 'Admin@123';
     
     try {
@@ -133,4 +133,14 @@ async function ensureTestAccount() {
         console.error('Test account error:', error);
         throw error;
     }
+}
+
+// Sign in admin with Google
+async function signInWithGoogle(role) {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const result = await firebase.auth().signInWithPopup(provider);
+    const user = result.user;
+    await ensureUserRecord(user, role, role === 'admin' ? 'Administrator' : '');
+    return user;
 }

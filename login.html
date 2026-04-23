@@ -31,7 +31,7 @@
             <div class="error-message" id="errorMessage"></div>
 
             <form id="loginForm" onsubmit="handleLogin(event)">
-                <div class="form-group">
+                <div class="form-group" id="matricGroup">
                     <label for="matricNo">Matric Number</label>
                     <input id="matricNo" name="matricNo" type="text" placeholder="e.g., BIU/2023 or SCN/CSC" required>
                 </div>
@@ -43,6 +43,12 @@
 
                 <button type="submit" class="btn-primary">Sign In</button>
             </form>
+
+            <div id="adminGoogleSignIn" class="form-group" style="display:none; text-align:center; margin-top:16px;">
+                <button type="button" class="btn-primary" onclick="handleAdminGoogleSignIn()">
+                    Sign in with Google
+                </button>
+            </div>
 
             <div class="divider">
                 <span>or</span>
@@ -65,16 +71,19 @@
             currentRole = role;
             const studentBtn = document.getElementById('studentBtn');
             const adminBtn = document.getElementById('adminBtn');
-            const passwordGroup = document.getElementById('passwordGroup');
+            const loginForm = document.getElementById('loginForm');
+            const adminGoogleSignIn = document.getElementById('adminGoogleSignIn');
             
             if (role === 'student') {
                 studentBtn.classList.add('active');
                 adminBtn.classList.remove('active');
-                passwordGroup.style.display = 'block';
+                loginForm.style.display = 'block';
+                adminGoogleSignIn.style.display = 'none';
             } else {
                 studentBtn.classList.remove('active');
                 adminBtn.classList.add('active');
-                passwordGroup.style.display = 'none';
+                loginForm.style.display = 'none';
+                adminGoogleSignIn.style.display = 'block';
             }
         }
 
@@ -92,42 +101,51 @@
             errorDiv.classList.remove('show');
 
             try {
-                let email, pwd;
+                if (loginType !== 'student') {
+                    throw new Error('Use the Google sign-in button for admin login');
+                }
 
-                if (loginType === 'admin') {
-                    console.log('Starting admin login with Google...');
-                    await ensureAdminAccount();
-                    console.log('Admin login successful, redirecting...');
-                    // Already signed in, redirect
+                if (!password) {
+                    throw new Error('Password is required for student login');
+                }
+                
+                // Check if this is the test account
+                if (matricNo.toLowerCase() === 'test001' && password === 'Test@123') {
+                    await ensureTestAccount();
                     window.location.href = 'dashboard.html';
                     return;
-                } else {
-                    if (!password) {
-                        throw new Error('Password is required for student login');
-                    }
-                    
-                    // Check if this is the test account
-                    if (matricNo.toLowerCase() === 'test001' && password === 'Test@123') {
-                        await ensureTestAccount();
-                        window.location.href = 'dashboard.html';
-                        return;
-                    }
-                    
-                    email = sanitizeEmail(matricNo);
-                    pwd = password;
                 }
+                
+                const email = sanitizeEmail(matricNo);
+                const pwd = password;
 
                 const userCredential = await firebase.auth().signInWithEmailAndPassword(email, pwd);
                 
                 // Ensure user record exists in database
-                const role = loginType === 'admin' ? 'admin' : 'student';
-                const name = loginType === 'admin' ? 'Administrator' : '';
-                await ensureUserRecord(userCredential.user, role, name);
+                await ensureUserRecord(userCredential.user, 'student', '');
                 
                 window.location.href = 'dashboard.html';
             } catch (error) {
                 console.error('Login error:', error);
-                // Show more detailed error
+                let errorMsg = error.message;
+                if (error.code) {
+                    errorMsg += ' (code: ' + error.code + ')';
+                }
+                showError(errorDiv, errorMsg);
+            }
+        }
+
+        async function handleAdminGoogleSignIn() {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.classList.remove('show');
+
+            try {
+                console.log('Starting admin login with Google...');
+                await signInWithGoogle('admin');
+                console.log('Admin login successful, redirecting...');
+                window.location.href = 'dashboard.html';
+            } catch (error) {
+                console.error('Admin login error:', error);
                 let errorMsg = error.message;
                 if (error.code) {
                     errorMsg += ' (code: ' + error.code + ')';
@@ -139,6 +157,10 @@
         function showError(element, message) {
             element.textContent = message;
             element.classList.add('show');
+        }
+
+        function updateLoginForm() {
+            setRole(currentRole);
         }
 
         updateLoginForm();
