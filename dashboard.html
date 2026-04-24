@@ -554,7 +554,7 @@
             // Get user location
             navigator.geolocation.getCurrentPosition(async (position) => {
                 // Maximum distance in meters (extended to 50km)
-                const maxDistance = 50000;
+                const maxDistance = 5000;
                 try {
                     const db = firebase.database();
                     const sessionsRef = db.ref('sessions');
@@ -595,22 +595,8 @@
                         return;
                     }
 
-                    // Get device fingerprint
-                    const deviceId = getDeviceFingerprint();
-
-                    // Check if this device already marked attendance (prevent device fraud)
-                    const deviceAttendanceRef = db.ref('attendance/' + sessionId);
-                    const allAttendance = await deviceAttendanceRef.once('value');
-                    for (const [uid, record] of Object.entries(allAttendance.val() || {})) {
-                        if (record.deviceId === deviceId && uid !== currentUser.uid) {
-                            alert('This device has already been used to mark attendance by another user.');
-                            return;
-                        }
-                    }
-
                     await db.ref(`attendance/${sessionId}/${currentUser.uid}`).set({
                         timestamp: Date.now(),
-                        deviceId: deviceId,
                         lat: position.coords.latitude,
                         lng: position.coords.longitude,
                         ip: null // Note: IP requires server-side capture
@@ -931,11 +917,8 @@
                     const db = firebase.database();
                     const token = Math.random().toString(36).substring(2, 11);
                     const startTime = Date.now();
-                    const durationMinutes = parseInt(document.getElementById('sessionDuration').value) || 30;
+                    const durationMinutes = 30; // Default 30 minute session
                     const endTime = startTime + (durationMinutes * 60 * 1000);
-
-                    // Get device fingerprint
-                    const deviceId = getDeviceFingerprint();
 
                     const newSessionRef = db.ref('sessions').push();
                     await newSessionRef.set({
@@ -945,9 +928,7 @@
                         active: true,
                         // Save admin's location
                         adminLat: position.coords.latitude,
-                        adminLng: position.coords.longitude,
-                        // Device info
-                        adminDeviceId: deviceId
+                        adminLng: position.coords.longitude
                     });
 
                     currentSession = { id: newSessionRef.key, token, startTime, endTime, active: true };
