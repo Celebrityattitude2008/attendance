@@ -69,7 +69,7 @@
                             <label for="sessionToken">Attendance Token</label>
                             <input id="sessionToken" name="sessionToken" type="text" placeholder="Enter session token" required>
                         </div>
-                        <button type="submit" class="btn-primary">Mark Attendance</button>
+                        <button type="submit" class="btn-primary" style="width:100%;">Mark Attendance</button>
                     </form>
                 </div>
 
@@ -95,6 +95,22 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div class="card fade-in-up" style="animation-delay: 0.18s;">
+                <div class="session-control-header">
+                    <div class="icon-box indigo">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </div>
+                    <h3>My Attendance QR</h3>
+                </div>
+                <p style="color:#666; font-size:0.875rem; margin-bottom:1rem;">
+                    Save this QR on your device. Show it to your admin in any class to be marked present — works even if you're offline.
+                </p>
+                <div class="qr-display">
+                    <img id="myQrCode" src="" alt="Your personal QR code">
+                </div>
+                <button type="button" class="btn-primary" onclick="downloadMyQrCode()" style="margin-top: 1rem; background: linear-gradient(135deg, #059669 0%, #0891b2 100%);">⬇️ Save QR to Device</button>
             </div>
 
             <div class="card fade-in-up" style="animation-delay: 0.2s;">
@@ -149,17 +165,47 @@
                     <button id="endBtn" class="btn-primary" onclick="endSession()" style="display: none; background: #dc2626;">Stop Session</button>
                 </div>
 
-                <div class="card fade-in-up" style="animation-delay: 0.15s;" id="qrSection" style="display: none;">
+                <div class="card fade-in-up" id="qrSection" style="animation-delay: 0.15s; display: none;">
                     <div class="session-control-header">
                         <div class="icon-box indigo">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                         </div>
-                        <h3>QR Code</h3>
+                        <h3>Share Session With Students</h3>
+                    </div>
+                    <p style="color:#666; font-size:0.875rem; margin-bottom:0.75rem;">
+                        Students can <strong>scan the QR</strong> below or <strong>type the token</strong> manually. For students without internet, use <strong>Scan Student QR</strong> to mark them present from their saved code.
+                    </p>
+                    <div style="background:#f3f4f6; border-radius:0.5rem; padding:0.75rem 1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:160px;">
+                            <div style="font-size:0.75rem; color:#666; text-transform:uppercase; letter-spacing:0.05em;">Session Token</div>
+                            <div id="sessionTokenDisplay" style="font-family:monospace; font-size:1.25rem; font-weight:600; color:#111; word-break:break-all;">—</div>
+                        </div>
+                        <button type="button" id="copyTokenBtn" class="btn-primary" onclick="copySessionToken()" style="padding:0.5rem 1rem; font-size:0.875rem;">Copy</button>
                     </div>
                     <div class="qr-display">
-                        <img id="qrCode" src="" alt="QR Code">
+                        <img id="qrCode" src="" alt="Session QR Code">
                     </div>
                 </div>
+            </div>
+
+            <!-- Admin: scan a student's personal QR to mark them present in the chosen session -->
+            <div class="card fade-in-up" style="animation-delay: 0.18s;">
+                <div class="session-control-header">
+                    <div class="icon-box" style="background:linear-gradient(135deg, #059669 0%, #0891b2 100%);">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </div>
+                    <h3>Mark by Scanning Student QR</h3>
+                </div>
+                <p style="color:#666; font-size:0.875rem; margin-bottom:1rem;">
+                    Scan a student's personal QR to mark them present. Pick the class/date you're marking for — works for the active class or for a past class you missed marking.
+                </p>
+                <div class="form-group">
+                    <label for="scanTargetSession">Mark attendance for</label>
+                    <select id="scanTargetSession" style="width:100%; padding:0.625rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem; background:#fff; font-size:0.95rem;">
+                        <option value="">Loading classes…</option>
+                    </select>
+                </div>
+                <button type="button" class="btn-primary" onclick="openStudentScanner()" style="width:100%; background:linear-gradient(135deg, #059669 0%, #0891b2 100%);">📷 Scan Student QR</button>
             </div>
 
             <!-- Live Map Section -->
@@ -214,13 +260,26 @@
         </div>
     </div>
 
+    <!-- QR Scanner Modal (shared by student session-scan and admin student-scan) -->
+    <div id="qrScannerModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; z-index:2000; padding:1rem;">
+        <div class="card" style="max-width:520px; width:100%; position:relative; background:#1a1a1a; color:#fff; max-height:95vh; overflow:auto;">
+            <button onclick="closeQrScanner()" style="position:absolute; top:10px; right:10px; background:#dc2626; color:#fff; border:none; border-radius:0.25rem; padding:0.4rem 0.8rem; cursor:pointer; z-index:10;">Close</button>
+            <h3 id="qrScannerTitle" style="color:#fff; margin-bottom:0.75rem;">Scan QR Code</h3>
+            <p id="qrScannerSubtitle" style="color:#aaa; font-size:0.875rem; margin-bottom:1rem;"></p>
+            <div id="qrReader" style="width:100%; min-height:200px;"></div>
+            <p id="qrScannerStatus" style="margin-top:1rem; color:#aaa; text-align:center; font-size:0.9rem; min-height:1.2em;"></p>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-messaging-compat.js"></script>
-    <!-- QRCode library -->
+    <!-- QRCode library (generation) -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <!-- QR scanner library (camera-based reading) -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="auth.js"></script>
     <script>
         let currentUser = null;
@@ -441,6 +500,8 @@
         }
 
         async function loadStudentDashboard() {
+            // Render the student's permanent personal QR code as soon as the view is shown.
+            renderMyQrCode();
             try {
                 const db = firebase.database();
                 const attendanceRef = db.ref('attendance');
@@ -633,7 +694,10 @@
                 } else {
                     displayNoSession();
                 }
-                
+
+                // Populate the "Mark by Scanning Student QR" date/session picker
+                loadAdminSessionPicker();
+
                 // Always enable "Download All Attendance" button (works even without active session)
                 document.getElementById('downloadAllAttendanceBtn').onclick = downloadAllAttendanceCSV;
 
@@ -862,11 +926,15 @@
 
         function displaySessionStatus() {
             const statusDiv = document.getElementById('sessionStatus');
-            statusDiv.innerHTML = `<div class="session-status">✓ Session Active | Token: <strong>${currentSession.token}</strong></div>`;
+            statusDiv.innerHTML = `<div class="session-status">✓ Session Active</div>`;
 
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('endBtn').style.display = 'block';
             document.getElementById('qrSection').style.display = 'block';
+
+            // Populate token display in the share-session card
+            const tokenDisplay = document.getElementById('sessionTokenDisplay');
+            if (tokenDisplay) tokenDisplay.textContent = currentSession.token;
 
             // QR code now encodes only the session token
             const qrToken = currentSession.token;
@@ -931,9 +999,10 @@
                         adminLng: position.coords.longitude
                     });
 
-                    currentSession = { id: newSessionRef.key, token, startTime, endTime, active: true };
+                    currentSession = { id: newSessionRef.key, token, startTime, endTime, active: true, adminLat: position.coords.latitude, adminLng: position.coords.longitude };
                     displaySessionStatus();
                     startAttendancePolling();
+                    loadAdminSessionPicker();
                     alert(`Session started! Valid for ${durationMinutes} minutes. Your location is saved.`);
                 } catch (error) {
                     alert('Error starting session: ' + error.message);
@@ -979,8 +1048,236 @@
                 await db.ref(`sessions/${currentSession.id}`).update({ active: false });
                 currentSession = null;
                 displayNoSession();
+                // Clear the live attendance list and counter so a new session starts fresh
+                const list = document.getElementById('attendanceList');
+                if (list) list.innerHTML = '<p style="color: #999;">No active session</p>';
+                document.getElementById('attendanceCount').textContent = '0';
+                // Refresh the date picker so the just-ended session no longer shows "(Active)"
+                loadAdminSessionPicker();
             } catch (error) {
                 alert('Error: ' + error.message);
+            }
+        }
+
+        // ============================================================
+        // QR features: student personal QR, session QR scanning, admin
+        // marking offline students by scanning their personal QR.
+        // ============================================================
+
+        function renderMyQrCode() {
+            if (!currentUser) return;
+            const img = document.getElementById('myQrCode');
+            if (!img) return;
+            // Encode a stable, namespaced payload so the admin scanner can
+            // distinguish a student QR from any other QR it sees.
+            const payload = `ATTEND:STUDENT:${currentUser.uid}`;
+            if (typeof QRCode === 'undefined' || typeof QRCode.toDataURL !== 'function') {
+                img.alt = 'QR library not loaded';
+                return;
+            }
+            QRCode.toDataURL(payload, { width: 256, margin: 1 }, (err, url) => {
+                if (err) {
+                    console.error('My QR code generation error:', err);
+                    img.alt = 'QR generation failed';
+                    return;
+                }
+                img.src = url;
+                img.alt = 'Your personal attendance QR code';
+            });
+        }
+
+        function downloadMyQrCode() {
+            const img = document.getElementById('myQrCode');
+            if (!img || !img.src) {
+                alert('Your QR code is still being prepared. Please wait a moment.');
+                return;
+            }
+            const a = document.createElement('a');
+            a.href = img.src;
+            const matric = (document.getElementById('userInfo')?.textContent || 'student')
+                .replace(/[^a-zA-Z0-9._-]/g, '_');
+            a.download = `attendance_qr_${matric}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function copySessionToken() {
+            if (!currentSession || !currentSession.token) return;
+            const token = currentSession.token;
+            const btn = document.getElementById('copyTokenBtn');
+            const showCopied = () => {
+                if (!btn) return;
+                const orig = btn.textContent;
+                btn.textContent = '✓ Copied';
+                setTimeout(() => { btn.textContent = orig; }, 1500);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(token).then(showCopied).catch(() => {
+                    fallbackCopy(token); showCopied();
+                });
+            } else {
+                fallbackCopy(token);
+                showCopied();
+            }
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (_) {}
+            document.body.removeChild(ta);
+        }
+
+        // ----- QR scanner (camera, admin only) --------------------------
+        let html5QrScanner = null;
+        let qrScanLock = false;
+        let scanTargetSessionId = null;
+        let scanTargetSessionLabel = '';
+
+        function openStudentScanner() {
+            const select = document.getElementById('scanTargetSession');
+            const sid = select ? select.value : '';
+            if (!sid) {
+                alert('Pick which class you want to mark attendance for.');
+                return;
+            }
+            scanTargetSessionId = sid;
+            scanTargetSessionLabel = select.options[select.selectedIndex].text;
+            document.getElementById('qrScannerTitle').textContent = 'Scan Student QR';
+            document.getElementById('qrScannerSubtitle').textContent =
+                `Marking attendance for: ${scanTargetSessionLabel}. Point camera at a student's personal QR.`;
+            document.getElementById('qrScannerStatus').textContent = '';
+            document.getElementById('qrScannerModal').style.display = 'flex';
+            startQrScanner();
+        }
+
+        function startQrScanner() {
+            qrScanLock = false;
+            if (typeof Html5Qrcode === 'undefined') {
+                document.getElementById('qrScannerStatus').textContent =
+                    'QR scanner library not loaded. Check your internet connection.';
+                return;
+            }
+            // Make sure the reader element is empty before re-init
+            const readerEl = document.getElementById('qrReader');
+            readerEl.innerHTML = '';
+            html5QrScanner = new Html5Qrcode('qrReader');
+            html5QrScanner.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 240, height: 240 } },
+                (decodedText) => { handleQrScan(decodedText); },
+                () => { /* ignore per-frame decode failures */ }
+            ).catch(err => {
+                document.getElementById('qrScannerStatus').textContent =
+                    'Camera error: ' + (err && err.message ? err.message : err);
+            });
+        }
+
+        async function handleQrScan(decodedText) {
+            if (qrScanLock) return;
+            qrScanLock = true;
+            const text = (decodedText || '').trim();
+            try {
+                let uid = text;
+                const prefix = 'ATTEND:STUDENT:';
+                if (text.startsWith(prefix)) uid = text.substring(prefix.length);
+                if (!uid) {
+                    document.getElementById('qrScannerStatus').textContent = '✗ Unrecognized QR. Try again.';
+                    qrScanLock = false;
+                    return;
+                }
+                await markStudentByAdminScan(uid);
+                // Allow scanning multiple students in a row
+                setTimeout(() => { qrScanLock = false; }, 1500);
+            } catch (err) {
+                document.getElementById('qrScannerStatus').textContent = 'Error: ' + err.message;
+                qrScanLock = false;
+            }
+        }
+
+        async function closeQrScanner() {
+            document.getElementById('qrScannerModal').style.display = 'none';
+            if (html5QrScanner) {
+                try { await html5QrScanner.stop(); } catch (_) {}
+                try { html5QrScanner.clear(); } catch (_) {}
+                html5QrScanner = null;
+            }
+        }
+
+        async function markStudentByAdminScan(uid) {
+            const sessionId = scanTargetSessionId;
+            if (!sessionId) {
+                document.getElementById('qrScannerStatus').textContent = '✗ No class selected.';
+                return;
+            }
+            const db = firebase.database();
+            const [userSnap, sessionSnap] = await Promise.all([
+                db.ref(`users/${uid}`).once('value'),
+                db.ref(`sessions/${sessionId}`).once('value')
+            ]);
+            const user = userSnap.val();
+            const session = sessionSnap.val();
+            if (!user) {
+                document.getElementById('qrScannerStatus').textContent = '✗ Unknown student.';
+                return;
+            }
+            if (!session) {
+                document.getElementById('qrScannerStatus').textContent = '✗ Selected class no longer exists.';
+                return;
+            }
+            const label = user.name || user.matricNo || uid.substring(0, 8);
+            const existing = await db.ref(`attendance/${sessionId}/${uid}`).once('value');
+            if (existing.exists()) {
+                document.getElementById('qrScannerStatus').textContent = `Already marked: ${label}`;
+                return;
+            }
+            await db.ref(`attendance/${sessionId}/${uid}`).set({
+                timestamp: Date.now(),
+                lat: session.adminLat || '',
+                lng: session.adminLng || '',
+                markedBy: 'admin_qr_scan'
+            });
+            document.getElementById('qrScannerStatus').textContent = `✓ ${label} marked present for ${scanTargetSessionLabel}!`;
+            // Refresh live list only if we marked into the currently active session
+            if (currentSession && currentSession.id === sessionId) loadLiveAttendance();
+        }
+
+        // Populate the admin's "Mark attendance for" dropdown with every session,
+        // newest first. Default to the active session if there is one.
+        async function loadAdminSessionPicker() {
+            const select = document.getElementById('scanTargetSession');
+            if (!select) return;
+            try {
+                const db = firebase.database();
+                const snap = await db.ref('sessions').once('value');
+                const sessions = snap.val() || {};
+                const entries = Object.entries(sessions)
+                    .map(([id, s]) => ({ id, ...s }))
+                    .sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+
+                if (entries.length === 0) {
+                    select.innerHTML = '<option value="">No classes yet — start a session first</option>';
+                    return;
+                }
+                let activeId = null;
+                const opts = entries.map(s => {
+                    const date = s.startTime ? new Date(s.startTime) : null;
+                    const dateStr = date ? date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown date';
+                    const topic = s.topic ? ` — ${s.topic}` : '';
+                    const status = s.active ? ' (Active)' : '';
+                    if (s.active && !activeId) activeId = s.id;
+                    return `<option value="${s.id}">${escapeHtml(dateStr + topic + status)}</option>`;
+                });
+                select.innerHTML = opts.join('');
+                if (activeId) select.value = activeId;
+            } catch (err) {
+                console.error('Failed to load sessions for picker:', err);
+                select.innerHTML = '<option value="">Failed to load classes</option>';
             }
         }
 
@@ -999,16 +1296,25 @@
 
             try {
                 const db = firebase.database();
-                const attendanceRef = db.ref(`attendance/${currentSession.id}`);
-                const snapshot = await attendanceRef.once('value');
-                const attendance = snapshot.val() || {};
+                const [attendanceSnap, usersSnap] = await Promise.all([
+                    db.ref(`attendance/${currentSession.id}`).once('value'),
+                    db.ref('users').once('value')
+                ]);
+                const attendance = attendanceSnap.val() || {};
+                const users = usersSnap.val() || {};
 
                 const list = document.getElementById('attendanceList');
-                const items = Object.entries(attendance).map(([uid, record]) => {
+                // Sort newest-first so admin sees the most recent mark at the top
+                const entries = Object.entries(attendance).sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+                const items = entries.map(([uid, record]) => {
+                    const user = users[uid] || {};
+                    const name = user.name || 'Unknown';
+                    const matric = user.matricNo ? ` (${user.matricNo})` : '';
                     const date = new Date(record.timestamp);
                     const isLate = record.timestamp > (currentSession.startTime + 5 * 60 * 1000);
+                    const tag = record.markedBy === 'admin_qr_scan' ? ' <span style="font-size:0.75rem; background:#0891b2; color:#fff; padding:0.1rem 0.4rem; border-radius:4px; margin-left:0.4rem;">QR scan</span>' : '';
                     return `<div class="attendance-item ${isLate ? 'late' : ''}">
-                        ✓ ${uid.substring(0, 8)}... | ${date.toLocaleTimeString()}
+                        ✓ <strong>${escapeHtml(name)}</strong>${escapeHtml(matric)}${tag} <span style="float:right; color:#aaa; font-size:0.85rem;">${date.toLocaleTimeString()}</span>
                     </div>`;
                 });
 
@@ -1017,6 +1323,10 @@
             } catch (error) {
                 console.error('Error loading attendance:', error);
             }
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         }
 
         async function handleLogout() {
