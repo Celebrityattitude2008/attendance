@@ -197,15 +197,17 @@
                     <h3>Mark by Scanning Student QR</h3>
                 </div>
                 <p style="color:#666; font-size:0.875rem; margin-bottom:1rem;">
-                    Scan a student's personal QR to mark them present. Pick the class/date you're marking for — works for the active class or for a past class you missed marking.
+                    Manually mark attendance for any student on any date.
                 </p>
                 <div class="form-group">
-                    <label for="scanTargetSession">Mark attendance for</label>
-                    <select id="scanTargetSession" style="width:100%; padding:0.625rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem; background:#fff; font-size:0.95rem;">
-                        <option value="">Loading classes…</option>
-                    </select>
+                    <label for="manualStudentMatric">Student Matric Number</label>
+                    <input id="manualStudentMatric" type="text" placeholder="Enter student matric number" style="width:100%; padding:0.625rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem; font-size:0.95rem;">
                 </div>
-                <button type="button" class="btn-primary" onclick="openStudentScanner()" style="width:100%; background:linear-gradient(135deg, #059669 0%, #0891b2 100%);">📷 Scan Student QR</button>
+                <div class="form-group">
+                    <label for="manualAttendanceDate">Date</label>
+                    <input id="manualAttendanceDate" type="datetime-local" style="width:100%; padding:0.625rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem; font-size:0.95rem;">
+                </div>
+                <button type="button" class="btn-primary" onclick="markManualAttendance()" style="width:100%; background:linear-gradient(135deg, #059669 0%, #0891b2 100%);">✓ Mark Attendance</button>
             </div>
 
             <!-- Live Map Section -->
@@ -676,7 +678,6 @@
 
         async function loadAdminDashboard() {
             try {
-                await addDefaultAttendanceIfNeeded();
                 const db = firebase.database();
                 const sessionsRef = db.ref('sessions');
                 const snapshot = await sessionsRef.once('value');
@@ -695,8 +696,7 @@
                     displayNoSession();
                 }
 
-                // Populate the "Mark by Scanning Student QR" date/session picker
-                loadAdminSessionPicker();
+
 
                 // Always enable "Download All Attendance" button (works even without active session)
                 document.getElementById('downloadAllAttendanceBtn').onclick = downloadAllAttendanceCSV;
@@ -1059,17 +1059,10 @@
             }
         }
 
-        // ============================================================
-        // QR features: student personal QR, session QR scanning, admin
-        // marking offline students by scanning their personal QR.
-        // ============================================================
-
         function renderMyQrCode() {
             if (!currentUser) return;
             const img = document.getElementById('myQrCode');
             if (!img) return;
-            // Encode a stable, namespaced payload so the admin scanner can
-            // distinguish a student QR from any other QR it sees.
             const payload = `ATTEND:STUDENT:${currentUser.uid}`;
             if (typeof QRCode === 'undefined' || typeof QRCode.toDataURL !== 'function') {
                 img.alt = 'QR library not loaded';
@@ -1337,74 +1330,103 @@
                 alert('Error: ' + error.message);
             }
         }
-        // Automatically add default attendance for all users for specific dates if not already present
-        async function addDefaultAttendanceIfNeeded() {
-            const db = firebase.database();
-            const usersSnap = await db.ref('users').once('value');
-            const users = usersSnap.val() || {};
-            
-            // Use explicit timestamps for the 3 dates
-            // 27th March 2026, 10th April 2026, 17th April 2026 at 9:00 AM
-            const dates = [
-                { date: new Date(2026, 2, 27, 9, 0, 0).getTime(), label: 'March 27, 2026' },
-                { date: new Date(2026, 3, 10, 9, 0, 0).getTime(), label: 'April 10, 2026' },
-                { date: new Date(2026, 3, 17, 9, 0, 0).getTime(), label: 'April 17, 2026' }
-            ];
-            
-            console.log('Adding default attendance for dates:', dates.map(d => d.label));
-            
-            // Check if sessions for these dates already exist (by startTime and defaultSession flag)
-            const sessionsSnap = await db.ref('sessions').once('value');
-            const sessions = sessionsSnap.val() || {};
-            const existingDates = new Set();
-            Object.values(sessions).forEach(s => {
-                if (s && s.defaultSession) {
-                    dates.forEach(d => {
-                        if (s.startTime === d.date) {
-                            existingDates.add(d.date);
-                        }
-                    });
+        // Manually mark attendance for a specific student on a specific date
+        async function markManualAttendance() {
+            const matricInput = document.getElementById('manualStudentMatric').value.trim();
+            const dateInput = document.getElementById('manualAttendanceDate').value;
+
+            if (!matricInput) {
+                alert('Please enter a student matric number.');
+                return;
+            }
+            if (!dateInput) {
+                alert('Please select a date and time.');
+                return;
+            }
+
+            try {
+                const db = firebase.database();
+                
+                // Find user by matric number
+                const usersSnap = await db.ref('users').once('value');
+                const users = usersSnap.val() || {};
+                let foundUser = null;
+                let foundUid = null;
+
+                for (const [uid, user] of Object.entries(users)) {
+                    if (user.matricNo && user.matricNo.toUpperCase() === matricInput.toUpperCase()) {
+                        foundUser = user;
+                        foundUid = uid;
+                        break;
+                    }
                 }
-            });
-            
-            console.log('Existing default dates:', existingDates);
-            
-            for (const d of dates) {
-                if (!existingDates.has(d.date)) {
-                    console.log('Creating session for:', d.label);
-                    // Create a session for this date
+
+                if (!foundUser) {
+                    alert(`Student with matric number "${matricInput}" not found.`);
+                    return;
+                }
+
+                // Parse the selected date/time
+                const selectedDate = new Date(dateInput);
+                const timestamp = selectedDate.getTime();
+
+                // Find or create a session for this date
+                const sessionsSnap = await db.ref('sessions').once('value');
+                const sessions = sessionsSnap.val() || {};
+                let sessionId = null;
+                
+                // Look for a session with matching date (same day)
+                const targetDateStart = new Date(selectedDate);
+                targetDateStart.setHours(0, 0, 0, 0);
+                const targetDateEnd = new Date(selectedDate);
+                targetDateEnd.setHours(23, 59, 59, 999);
+
+                for (const [sId, session] of Object.entries(sessions)) {
+                    if (session && session.startTime >= targetDateStart.getTime() && session.startTime <= targetDateEnd.getTime()) {
+                        sessionId = sId;
+                        break;
+                    }
+                }
+
+                // If no session exists for this date, create one
+                if (!sessionId) {
                     const sessionRef = db.ref('sessions').push();
-                    const sessionId = sessionRef.key;
+                    sessionId = sessionRef.key;
+                    const sessionDate = new Date(selectedDate);
+                    sessionDate.setHours(9, 0, 0, 0);
+                    
                     await sessionRef.set({
                         token: Math.random().toString(36).substring(2, 11),
-                        startTime: d.date,
-                        endTime: d.date + 60 * 60 * 1000, // 1 hour session
+                        startTime: sessionDate.getTime(),
+                        endTime: sessionDate.getTime() + 60 * 60 * 1000,
                         active: false,
                         adminLat: 0,
                         adminLng: 0,
-                        adminDeviceId: 'default',
-                        defaultSession: true,
-                        topic: d.label
+                        adminDeviceId: 'admin',
+                        topic: selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                     });
-                    
-                    // Add attendance for all users (except admin)
-                    const userCount = Object.entries(users).filter(([uid, user]) => user.role !== 'admin').length;
-                    console.log(`Adding attendance for ${userCount} users for ${d.label}`);
-                    
-                    for (const [uid, user] of Object.entries(users)) {
-                        if (user.role !== 'admin') {
-                            await db.ref(`attendance/${sessionId}/${uid}`).set({
-                                timestamp: d.date + Math.floor(Math.random() * 1800000), // random time within 30 min
-                                deviceId: 'default',
-                                lat: '',
-                                lng: '',
-                                ip: ''
-                            });
-                        }
-                    }
                 }
+
+                // Mark attendance
+                await db.ref(`attendance/${sessionId}/${foundUid}`).set({
+                    timestamp: timestamp,
+                    deviceId: 'admin_manual',
+                    lat: '',
+                    lng: '',
+                    ip: '',
+                    markedBy: 'admin_manual'
+                });
+
+                alert(`✓ Attendance marked for ${foundUser.name} (${matricInput}) on ${selectedDate.toLocaleString()}`);
+                document.getElementById('manualStudentMatric').value = '';
+                document.getElementById('manualAttendanceDate').value = '';
+                
+                // Refresh if this is the current session
+                if (currentSession) loadLiveAttendance();
+            } catch (error) {
+                console.error('Error marking attendance:', error);
+                alert('Error: ' + error.message);
             }
-            console.log('Default attendance setup complete');
         }
     </script>
 </body>
