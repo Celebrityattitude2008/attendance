@@ -28,7 +28,9 @@ function getServiceAccount() {
 async function getAdminSdk() {
   const serviceAccount = getServiceAccount();
   if (!serviceAccount) return null;
-  const admin = await import("firebase-admin");
+  const adminModule = await import("firebase-admin");
+  // Dynamic ESM import wraps the module — unwrap .default if needed
+  const admin = (adminModule.default ?? adminModule) as typeof import("firebase-admin");
   if (!admin.apps.length) {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
