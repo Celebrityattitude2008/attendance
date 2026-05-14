@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance - Login</title>
+    <title>Verix - Login</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -13,7 +13,7 @@
                 <div class="icon-container">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                 </div>
-                <h1>Attendance</h1>
+                <h1>Verix</h1>
                 <p>Sign in to continue</p>
             </div>
 
@@ -55,7 +55,8 @@
             </div>
 
             <div class="links">
-                <a onclick="goToRegister()">Don't have an account? Register</a>
+                <a onclick="goToRegister()" style="cursor:pointer;">Don't have an account? Register</a>
+                <a id="forgotPasswordLink" onclick="goToForgotPassword()" style="cursor:pointer; display:block; margin-top:0.5rem; color:#f59e0b;">Forgot Password?</a>
             </div>
         </div>
     </div>
@@ -73,22 +74,29 @@
             const adminBtn = document.getElementById('adminBtn');
             const loginForm = document.getElementById('loginForm');
             const adminGoogleSignIn = document.getElementById('adminGoogleSignIn');
+            const forgotLink = document.getElementById('forgotPasswordLink');
             
             if (role === 'student') {
                 studentBtn.classList.add('active');
                 adminBtn.classList.remove('active');
                 loginForm.style.display = 'block';
                 adminGoogleSignIn.style.display = 'none';
+                forgotLink.style.display = 'block';
             } else {
                 studentBtn.classList.remove('active');
                 adminBtn.classList.add('active');
                 loginForm.style.display = 'none';
                 adminGoogleSignIn.style.display = 'block';
+                forgotLink.style.display = 'none';
             }
         }
 
         function goToRegister() {
             window.location.href = 'register.html';
+        }
+
+        function goToForgotPassword() {
+            window.location.href = 'forgot-password.html';
         }
 
         async function handleLogin(event) {
@@ -109,7 +117,6 @@
                     throw new Error('Password is required for student login');
                 }
                 
-                // Check if this is the test account
                 if (matricNo.toLowerCase() === 'test001' && password === 'Test@123') {
                     await ensureTestAccount();
                     window.location.href = 'dashboard.html';
@@ -117,13 +124,8 @@
                 }
                 
                 const email = sanitizeEmail(matricNo);
-                const pwd = password;
-
-                const userCredential = await firebase.auth().signInWithEmailAndPassword(email, pwd);
-                
-                // Ensure user record exists in database
+                const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
                 await ensureUserRecord(userCredential.user, 'student', '');
-                
                 window.location.href = 'dashboard.html';
             } catch (error) {
                 console.error('Login error:', error);
@@ -140,9 +142,7 @@
             errorDiv.classList.remove('show');
 
             try {
-                console.log('Starting admin login with Google...');
                 await signInWithGoogle('admin');
-                console.log('Admin login successful, redirecting...');
                 window.location.href = 'dashboard.html';
             } catch (error) {
                 console.error('Admin login error:', error);
@@ -159,12 +159,11 @@
             element.classList.add('show');
         }
 
+        updateLoginForm();
+
         function updateLoginForm() {
             setRole(currentRole);
         }
-
-        updateLoginForm();
     </script>
 </body>
 </html>
-

@@ -9,10 +9,11 @@
 
     const db = firebase.database();
     const pastClasses = [
-        { date: '2026-03-27T09:00:00', topic: 'March 27, 2026' },
-        { date: '2026-04-10T09:00:00', topic: 'April 10, 2026' },
-        { date: '2026-04-17T09:00:00', topic: 'April 17, 2026' },
-        { date: '2026-04-24T09:00:00', topic: 'April 24, 2026' }
+        { date: '2026-05-09T09:00:00', topic: 'May 9, 2026' },
+        { date: '2026-05-10T09:00:00', topic: 'May 10, 2026' },
+        { date: '2026-05-11T09:00:00', topic: 'May 11, 2026' },
+        { date: '2026-05-12T09:00:00', topic: 'May 12, 2026' },
+        { date: '2026-05-13T09:00:00', topic: 'May 13, 2026' }
     ];
 
     console.log('Fetching all users...');

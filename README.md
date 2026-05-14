@@ -1,4 +1,4 @@
-# IDS 111 Attendance Portal - HTML/CSS/JS Version
+# Verix - HTML/CSS/JS Version
 
 Simple, no-build attendance system.
 

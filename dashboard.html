@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance - Dashboard</title>
+    <title>Verix - Dashboard</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -64,40 +64,13 @@
                         </div>
                         <h3>Mark Attendance</h3>
                     </div>
-                    <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-                        <button type="button" class="btn-tab active" onclick="switchAttendanceTab('manual')" style="flex: 1; background: #3b82f6; color: white; border: none; border-radius: 0.5rem; padding: 0.5rem; cursor: pointer;">Manual Entry</button>
-                        <button type="button" class="btn-tab" onclick="switchAttendanceTab('camera')" style="flex: 1; background: #e5e7eb; color: #374151; border: none; border-radius: 0.5rem; padding: 0.5rem; cursor: pointer;">📷 Scan QR</button>
-                    </div>
-
-                    <!-- Manual Entry Tab -->
-                    <form id="attendanceForm" onsubmit="markAttendance(event)" style="display: block;">
+                    <form id="attendanceForm" onsubmit="markAttendance(event)">
                         <div class="form-group">
                             <label for="sessionToken">Attendance Token</label>
                             <input id="sessionToken" name="sessionToken" type="text" placeholder="Enter session token" required>
                         </div>
-                        <button type="submit" class="btn-primary">Mark Attendance</button>
+                        <button type="submit" class="btn-primary" style="width:100%;">Mark Attendance</button>
                     </form>
-
-                    <!-- Camera Scan Tab -->
-                    <div id="cameraTab" style="display: none;">
-                        <div class="form-group">
-                            <div id="cameraContainer" style="width: 100%; aspect-ratio: 1 / 1; background: #000; border-radius: 0.5rem; margin-bottom: 0.5rem; position: relative; overflow: hidden; border: 2px solid #ddd;">
-                                <video 
-                                    id="cameraStream" 
-                                    autoplay 
-                                    playsinline 
-                                    muted 
-                                    style="width: 100%; height: 100%; object-fit: cover; display: block; background: #000;">
-                                </video>
-                            </div>
-                            <canvas id="qrCanvas" style="display: none; width: 100%; height: 100%;"></canvas>
-                        </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button type="button" id="startCameraBtn" class="btn-primary" onclick="startCameraAdvanced()" style="flex: 1;">📷 Start Camera</button>
-                            <button type="button" id="stopCameraBtn" class="btn-primary" onclick="stopCameraAdvanced()" style="flex: 1; background: #dc2626; display: none;">⏹️ Stop Camera</button>
-                        </div>
-                        <p id="scanStatus" style="margin-top: 0.5rem; color: #666; font-size: 0.875rem; text-align: center; min-height: 1.2rem; padding: 0.5rem; background: #f0f9ff; border-radius: 0.25rem;">Ready to scan...</p>
-                    </div>
                 </div>
 
                 <div class="card gradient-blue" style="background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); color: white; border: none;">
@@ -109,7 +82,7 @@
                     </div>
                     <div id="attendanceSummary">
                         <div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(4px); border-radius: 0.75rem; padding: 1rem; margin-bottom: 0.5rem;">
-                            <p style="opacity: 0.8; font-size: 0.875rem;">Total Classes</p>
+                            <p style="opacity: 0.8; font-size: 0.875rem;">My Attendance</p>
                             <p style="font-size: 1.5rem; font-weight: 600;" id="totalClasses">0</p>
                         </div>
                         <div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(4px); border-radius: 0.75rem; padding: 1rem; margin-bottom: 0.5rem;">
@@ -117,11 +90,27 @@
                             <p style="font-size: 1.5rem; font-weight: 600;" id="attendanceRate">0%</p>
                         </div>
                         <div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(4px); border-radius: 0.75rem; padding: 1rem;">
-                            <p style="opacity: 0.8; font-size: 0.875rem;">This Month</p>
+                            <p style="opacity: 0.8; font-size: 0.875rem;">This Week</p>
                             <p style="font-size: 1.5rem; font-weight: 600;" id="thisMonthClasses">0 classes</p>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div class="card fade-in-up" style="animation-delay: 0.18s;">
+                <div class="session-control-header">
+                    <div class="icon-box indigo">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </div>
+                    <h3>My Attendance QR</h3>
+                </div>
+                <p style="color:#666; font-size:0.875rem; margin-bottom:1rem;">
+                    Save this QR on your device. Show it to your admin in any class to be marked present — works even if you're offline.
+                </p>
+                <div class="qr-display">
+                    <img id="myQrCode" src="" alt="Your personal QR code">
+                </div>
+                <button type="button" class="btn-primary" onclick="downloadMyQrCode()" style="margin-top: 1rem; background: linear-gradient(135deg, #059669 0%, #0891b2 100%);">⬇️ Save QR to Device</button>
             </div>
 
             <div class="card fade-in-up" style="animation-delay: 0.2s;">
@@ -176,17 +165,86 @@
                     <button id="endBtn" class="btn-primary" onclick="endSession()" style="display: none; background: #dc2626;">Stop Session</button>
                 </div>
 
-                <div class="card fade-in-up" style="animation-delay: 0.15s;" id="qrSection" style="display: none;">
+                <div class="card fade-in-up" id="qrSection" style="animation-delay: 0.15s; display: none;">
                     <div class="session-control-header">
                         <div class="icon-box indigo">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                         </div>
-                        <h3>QR Code</h3>
+                        <h3>Share Session With Students</h3>
+                    </div>
+                    <p style="color:#666; font-size:0.875rem; margin-bottom:0.75rem;">
+                        Students can <strong>scan the QR</strong> below or <strong>type the token</strong> manually. For students without internet, use <strong>Scan Student QR</strong> to mark them present from their saved code.
+                    </p>
+                    <div style="background:#f3f4f6; border-radius:0.5rem; padding:0.75rem 1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:160px;">
+                            <div style="font-size:0.75rem; color:#666; text-transform:uppercase; letter-spacing:0.05em;">Session Token</div>
+                            <div id="sessionTokenDisplay" style="font-family:monospace; font-size:1.25rem; font-weight:600; color:#111; word-break:break-all;">—</div>
+                        </div>
+                        <button type="button" id="copyTokenBtn" class="btn-primary" onclick="copySessionToken()" style="padding:0.5rem 1rem; font-size:0.875rem;">Copy</button>
                     </div>
                     <div class="qr-display">
-                        <img id="qrCode" src="" alt="QR Code">
+                        <img id="qrCode" src="" alt="Session QR Code">
                     </div>
                 </div>
+            </div>
+
+            <!-- Admin: scan a student's personal QR to mark them present -->
+            <div class="card fade-in-up" id="scanStudentQRSection" style="animation-delay: 0.18s; display: none;">
+                <div class="session-control-header">
+                    <div class="icon-box" style="background:linear-gradient(135deg, #059669 0%, #0891b2 100%);">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    </div>
+                    <h3>Scan Student QR to Mark Present</h3>
+                </div>
+                <p style="color:#666; font-size:0.875rem; margin-bottom:1rem;">
+                    Hold student QR code in front of camera to mark them present in the current session.
+                </p>
+                <div id="qrScannerContainer" style="position: relative; background: #000; border-radius: 0.5rem; overflow: hidden; margin-bottom: 1rem;">
+                    <video id="qrVideo" autoplay playsinline muted style="width: 100%; height: auto; display: block; min-height: 300px;"></video>
+                    <canvas id="qrCanvas" style="display: none;"></canvas>
+                    <div id="scanIndicator" style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.7); color: white; padding: 8px 12px; border-radius: 4px; font-size: 0.875rem; display: none;">Scanning...</div>
+                </div>
+                <div id="scanStatus" style="background: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem; color: #1e40af; font-size: 0.875rem; text-align: center;">
+                    <span id="scanStatusText">Press Start Scanner to begin</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="button" id="toggleScannerBtn" class="btn-primary" onclick="toggleQRScanner()" style="flex: 1; background: linear-gradient(135deg, #059669 0%, #0891b2 100%);">📷 Start Scanner</button>
+                    <button type="button" onclick="closeQRScanner()" style="flex: 1; background: #dc2626; color: white; border: none; border-radius: 0.5rem; padding: 0.625rem; cursor: pointer; font-weight: 500;">Close</button>
+                </div>
+            </div>
+
+            <!-- Admin: Pending Password Reset Requests -->
+            <div class="card fade-in-up" id="pendingResetsSection" style="animation-delay: 0.22s; display: none;">
+                <div class="session-control-header">
+                    <div class="icon-box" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <h3>Pending Password Resets (<span id="pendingResetsCount">0</span>)</h3>
+                </div>
+                <p style="color:#666; font-size:0.875rem; margin-bottom:1rem;">Students who requested a password reset. Accept to generate temporary password or reject the request.</p>
+                <div id="pendingResetsList"></div>
+            </div>
+
+            <!-- Manual Mark Attendance (for offline or when scanner doesn't work) -->
+            <div class="card fade-in-up" style="animation-delay: 0.19s;">
+                <div class="session-control-header">
+                    <div class="icon-box" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </div>
+                    <h3>Manual Mark Attendance</h3>
+                </div>
+                <p style="color:#666; font-size:0.875rem; margin-bottom:1rem;">
+                    Manually mark attendance for any student on any date.
+                </p>
+                <div class="form-group">
+                    <label for="manualStudentMatric">Student Matric Number</label>
+                    <input id="manualStudentMatric" type="text" placeholder="Enter student matric number" style="width:100%; padding:0.625rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem; font-size:0.95rem;">
+                </div>
+                <div class="form-group">
+                    <label for="manualAttendanceDate">Date</label>
+                    <input id="manualAttendanceDate" type="datetime-local" style="width:100%; padding:0.625rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem; font-size:0.95rem;">
+                </div>
+                <button type="button" class="btn-primary" onclick="markManualAttendance()" style="width:100%; background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">✓ Mark Attendance</button>
             </div>
 
             <!-- Live Map Section -->
@@ -241,15 +299,28 @@
         </div>
     </div>
 
+    <!-- QR Scanner Modal (shared by student session-scan and admin student-scan) -->
+    <div id="qrScannerModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; z-index:2000; padding:1rem;">
+        <div class="card" style="max-width:520px; width:100%; position:relative; background:#1a1a1a; color:#fff; max-height:95vh; overflow:auto;">
+            <button onclick="closeQrScanner()" style="position:absolute; top:10px; right:10px; background:#dc2626; color:#fff; border:none; border-radius:0.25rem; padding:0.4rem 0.8rem; cursor:pointer; z-index:10;">Close</button>
+            <h3 id="qrScannerTitle" style="color:#fff; margin-bottom:0.75rem;">Scan QR Code</h3>
+            <p id="qrScannerSubtitle" style="color:#aaa; font-size:0.875rem; margin-bottom:1rem;"></p>
+            <div id="qrReader" style="width:100%; min-height:200px;"></div>
+            <p id="qrScannerStatus" style="margin-top:1rem; color:#aaa; text-align:center; font-size:0.9rem; min-height:1.2em;"></p>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-messaging-compat.js"></script>
-    <!-- QRCode library -->
+    <!-- QRCode library (generation) -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
-    <!-- QR Code Scanner library -->
-    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
+    <!-- QR scanner library (camera-based reading) -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <!-- jsQR library for inline camera QR decoding -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="auth.js"></script>
     <script>
         let currentUser = null;
@@ -258,7 +329,6 @@
         let userMarkers = {};
         let adminMarker = null;
         let messaging = null;
-        let cameraActive = false;
 
         async function initNotifications() {
             try {
@@ -471,6 +541,8 @@
         }
 
         async function loadStudentDashboard() {
+            // Render the student's permanent personal QR code as soon as the view is shown.
+            renderMyQrCode();
             try {
                 const db = firebase.database();
                 const attendanceRef = db.ref('attendance');
@@ -499,15 +571,31 @@
                 // Sort by date (newest first)
                 history.sort((a, b) => b.fullDate - a.fullDate);
 
-                const totalSessions = Object.keys(sessions).length;
-                const attendanceRate = totalSessions > 0 ? Math.round((history.length / totalSessions) * 100) : 0;
-                const currentMonth = new Date().getMonth();
-                const currentYear = new Date().getFullYear();
-                const thisMonthClasses = history.filter(h => h.fullDate.getMonth() === currentMonth && h.fullDate.getFullYear() === currentYear).length;
+                let fridayCount = 0;
+                Object.values(sessions).forEach(session => {
+                    if (session.startTime) {
+                        const date = new Date(session.startTime);
+                        if (date.getDay() === 5) { // Friday
+                            fridayCount += 1;
+                        }
+                    }
+                });
+                const totalSessions = 5 + fridayCount;
+                // Rate = sessions attended / total sessions. If attended all, it's 100%.
+                const attendanceRate = totalSessions > 0 ? Math.round((history.length / totalSessions) * 100) : (history.length > 0 ? 100 : 0);
 
-                document.getElementById('totalClasses').textContent = history.length;
+                // This Week = since last Friday (weekly reset every Friday)
+                const now = new Date();
+                const dayOfWeek = now.getDay(); // 0=Sun, 5=Fri
+                const daysSinceFriday = dayOfWeek >= 5 ? dayOfWeek - 5 : dayOfWeek + 2;
+                const lastFriday = new Date(now);
+                lastFriday.setDate(now.getDate() - daysSinceFriday);
+                lastFriday.setHours(0, 0, 0, 0);
+                const thisWeekClasses = history.filter(h => h.fullDate >= lastFriday).length;
+
+                document.getElementById('totalClasses').textContent = `${history.length} / ${totalSessions}`;
                 document.getElementById('attendanceRate').textContent = `${attendanceRate}%`;
-                document.getElementById('thisMonthClasses').textContent = `${thisMonthClasses} classes`;
+                document.getElementById('thisMonthClasses').textContent = `${thisWeekClasses} classes`;
 
                 const historyDiv = document.getElementById('attendanceHistory');
                 
@@ -645,7 +733,6 @@
 
         async function loadAdminDashboard() {
             try {
-                await addDefaultAttendanceIfNeeded();
                 const db = firebase.database();
                 const sessionsRef = db.ref('sessions');
                 const snapshot = await sessionsRef.once('value');
@@ -663,7 +750,7 @@
                 } else {
                     displayNoSession();
                 }
-                
+
                 // Always enable "Download All Attendance" button (works even without active session)
                 document.getElementById('downloadAllAttendanceBtn').onclick = downloadAllAttendanceCSV;
 
@@ -671,8 +758,110 @@
                 setTimeout(async () => {
                     await loadDepartmentAttendanceCards();
                 }, 500);
+
+                // Load pending password reset requests
+                loadPendingPasswordResets();
             } catch (error) {
                 console.error('Error loading admin dashboard:', error);
+            }
+        }
+
+        async function loadPendingPasswordResets() {
+            try {
+                const db = firebase.database();
+                const snap = await db.ref('password_reset_requests').once('value');
+                const requests = snap.val() || {};
+                const pending = Object.entries(requests).filter(([_, r]) => r && r.status === 'pending');
+                const section = document.getElementById('pendingResetsSection');
+                const countEl = document.getElementById('pendingResetsCount');
+                const listEl = document.getElementById('pendingResetsList');
+
+                if (pending.length === 0) {
+                    section.style.display = 'none';
+                    return;
+                }
+
+                section.style.display = 'block';
+                countEl.textContent = pending.length;
+                listEl.innerHTML = pending.map(([key, r]) => `
+                    <div style="background:#fff8dc; border:1px solid #f59e0b; border-radius:0.5rem; padding:1rem; margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+                        <div style="flex:1; min-width:200px;">
+                            <strong style="font-size:0.95rem;">${escapeHtml(r.name)}</strong>
+                            <span style="color:#666; font-size:0.85rem; margin-left:0.5rem;">${escapeHtml(r.matricNo)}</span>
+                            <div style="font-size:0.8rem; color:#888; margin-top:0.3rem;">${new Date(r.timestamp).toLocaleString()}</div>
+                        </div>
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                            <button onclick="acceptResetRequest('${key}', '${r.matricNo}')" style="background:#059669; color:white; border:none; border-radius:0.375rem; padding:0.5rem 1rem; cursor:pointer; font-size:0.85rem; font-weight:500;">✓ Accept</button>
+                            <button onclick="rejectResetRequest('${key}')" style="background:#dc2626; color:white; border:none; border-radius:0.375rem; padding:0.5rem 1rem; cursor:pointer; font-size:0.85rem; font-weight:500;">✗ Reject</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Error loading password reset requests:', err);
+            }
+        }
+
+        async function acceptResetRequest(key, matricNo) {
+            try {
+                // Generate a temporary password
+                const tempPassword = 'Temp' + Math.random().toString(36).substring(2, 8).toUpperCase() + '123';
+                
+                const db = firebase.database();
+                const email = sanitizeEmail(matricNo);
+                
+                // Try backend first
+                try {
+                    const res = await fetch('/api/admin-reset-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ matricNo, email, newPassword: tempPassword })
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        await db.ref(`password_reset_requests/${key}`).update({ 
+                            status: 'approved',
+                            processedAt: Date.now(),
+                            tempPassword: tempPassword,
+                            processedBy: currentUser.uid
+                        });
+                        alert(`Password reset approved!\n\nTemporary password: ${tempPassword}\n\nNotify student to log in with this password and change it immediately.`);
+                        loadPendingPasswordResets();
+                        return;
+                    }
+                } catch (_) { /* backend not available */ }
+                
+                // If backend unavailable, mark as approved with temp password stored
+                await db.ref(`password_reset_requests/${key}`).update({ 
+                    status: 'approved',
+                    processedAt: Date.now(),
+                    tempPassword: tempPassword,
+                    processedBy: currentUser.uid,
+                    note: 'Approved. Admin must reset password in Firebase Console.'
+                });
+                alert(`Password reset approved!\n\nTemporary password to share: ${tempPassword}\n\nPlease manually reset the password in Firebase Auth console.`);
+                loadPendingPasswordResets();
+            } catch (err) {
+                alert('Error accepting request: ' + err.message);
+            }
+        }
+
+        async function rejectResetRequest(key) {
+            const reason = prompt('Enter rejection reason (optional):');
+            if (reason === null) return;
+            
+            try {
+                const db = firebase.database();
+                await db.ref(`password_reset_requests/${key}`).update({ 
+                    status: 'rejected',
+                    processedAt: Date.now(),
+                    rejectionReason: reason || 'No reason provided',
+                    processedBy: currentUser.uid
+                });
+                alert('Password reset request rejected.');
+                loadPendingPasswordResets();
+            } catch (err) {
+                alert('Error rejecting request: ' + err.message);
             }
         }
 
@@ -892,11 +1081,16 @@
 
         function displaySessionStatus() {
             const statusDiv = document.getElementById('sessionStatus');
-            statusDiv.innerHTML = `<div class="session-status">✓ Session Active | Token: <strong>${currentSession.token}</strong></div>`;
+            statusDiv.innerHTML = `<div class="session-status">✓ Session Active</div>`;
 
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('endBtn').style.display = 'block';
             document.getElementById('qrSection').style.display = 'block';
+            document.getElementById('scanStudentQRSection').style.display = 'block';
+
+            // Populate token display in the share-session card
+            const tokenDisplay = document.getElementById('sessionTokenDisplay');
+            if (tokenDisplay) tokenDisplay.textContent = currentSession.token;
 
             // QR code now encodes only the session token
             const qrToken = currentSession.token;
@@ -933,6 +1127,8 @@
             document.getElementById('startBtn').style.display = 'block';
             document.getElementById('endBtn').style.display = 'none';
             document.getElementById('qrSection').style.display = 'none';
+            document.getElementById('scanStudentQRSection').style.display = 'none';
+            closeQRScanner();
         }
 
         // Get admin's location when starting session
@@ -961,9 +1157,10 @@
                         adminLng: position.coords.longitude
                     });
 
-                    currentSession = { id: newSessionRef.key, token, startTime, endTime, active: true };
+                    currentSession = { id: newSessionRef.key, token, startTime, endTime, active: true, adminLat: position.coords.latitude, adminLng: position.coords.longitude };
                     displaySessionStatus();
                     startAttendancePolling();
+                    loadAdminSessionPicker();
                     alert(`Session started! Valid for ${durationMinutes} minutes. Your location is saved.`);
                 } catch (error) {
                     alert('Error starting session: ' + error.message);
@@ -1009,8 +1206,229 @@
                 await db.ref(`sessions/${currentSession.id}`).update({ active: false });
                 currentSession = null;
                 displayNoSession();
+                // Clear the live attendance list and counter so a new session starts fresh
+                const list = document.getElementById('attendanceList');
+                if (list) list.innerHTML = '<p style="color: #999;">No active session</p>';
+                document.getElementById('attendanceCount').textContent = '0';
+                // Refresh the date picker so the just-ended session no longer shows "(Active)"
+                loadAdminSessionPicker();
             } catch (error) {
                 alert('Error: ' + error.message);
+            }
+        }
+
+        function renderMyQrCode() {
+            if (!currentUser) return;
+            const img = document.getElementById('myQrCode');
+            if (!img) return;
+            const payload = `ATTEND:STUDENT:${currentUser.uid}`;
+            if (typeof QRCode === 'undefined' || typeof QRCode.toDataURL !== 'function') {
+                img.alt = 'QR library not loaded';
+                return;
+            }
+            QRCode.toDataURL(payload, { width: 256, margin: 1 }, (err, url) => {
+                if (err) {
+                    console.error('My QR code generation error:', err);
+                    img.alt = 'QR generation failed';
+                    return;
+                }
+                img.src = url;
+                img.alt = 'Your personal attendance QR code';
+            });
+        }
+
+        function downloadMyQrCode() {
+            const img = document.getElementById('myQrCode');
+            if (!img || !img.src) {
+                alert('Your QR code is still being prepared. Please wait a moment.');
+                return;
+            }
+            const a = document.createElement('a');
+            a.href = img.src;
+            const matric = (document.getElementById('userInfo')?.textContent || 'student')
+                .replace(/[^a-zA-Z0-9._-]/g, '_');
+            a.download = `attendance_qr_${matric}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function copySessionToken() {
+            if (!currentSession || !currentSession.token) return;
+            const token = currentSession.token;
+            const btn = document.getElementById('copyTokenBtn');
+            const showCopied = () => {
+                if (!btn) return;
+                const orig = btn.textContent;
+                btn.textContent = '✓ Copied';
+                setTimeout(() => { btn.textContent = orig; }, 1500);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(token).then(showCopied).catch(() => {
+                    fallbackCopy(token); showCopied();
+                });
+            } else {
+                fallbackCopy(token);
+                showCopied();
+            }
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (_) {}
+            document.body.removeChild(ta);
+        }
+
+        // ----- QR scanner (camera, admin only) --------------------------
+        let html5QrScanner = null;
+        let qrScanLock = false;
+        let scanTargetSessionId = null;
+        let scanTargetSessionLabel = '';
+
+        function openStudentScanner() {
+            const select = document.getElementById('scanTargetSession');
+            const sid = select ? select.value : '';
+            if (!sid) {
+                alert('Pick which class you want to mark attendance for.');
+                return;
+            }
+            scanTargetSessionId = sid;
+            scanTargetSessionLabel = select.options[select.selectedIndex].text;
+            document.getElementById('qrScannerTitle').textContent = 'Scan Student QR';
+            document.getElementById('qrScannerSubtitle').textContent =
+                `Marking attendance for: ${scanTargetSessionLabel}. Point camera at a student's personal QR.`;
+            document.getElementById('qrScannerStatus').textContent = '';
+            document.getElementById('qrScannerModal').style.display = 'flex';
+            startQrScanner();
+        }
+
+        function startQrScanner() {
+            qrScanLock = false;
+            if (typeof Html5Qrcode === 'undefined') {
+                document.getElementById('qrScannerStatus').textContent =
+                    'QR scanner library not loaded. Check your internet connection.';
+                return;
+            }
+            // Make sure the reader element is empty before re-init
+            const readerEl = document.getElementById('qrReader');
+            readerEl.innerHTML = '';
+            html5QrScanner = new Html5Qrcode('qrReader');
+            html5QrScanner.start(
+                { facingMode: 'environment' },
+                { fps: 10, qrbox: { width: 240, height: 240 } },
+                (decodedText) => { handleQrScan(decodedText); },
+                () => { /* ignore per-frame decode failures */ }
+            ).catch(err => {
+                document.getElementById('qrScannerStatus').textContent =
+                    'Camera error: ' + (err && err.message ? err.message : err);
+            });
+        }
+
+        async function handleQrScan(decodedText) {
+            if (qrScanLock) return;
+            qrScanLock = true;
+            const text = (decodedText || '').trim();
+            try {
+                let uid = text;
+                const prefix = 'ATTEND:STUDENT:';
+                if (text.startsWith(prefix)) uid = text.substring(prefix.length);
+                if (!uid) {
+                    document.getElementById('qrScannerStatus').textContent = '✗ Unrecognized QR. Try again.';
+                    qrScanLock = false;
+                    return;
+                }
+                await markStudentByAdminScan(uid);
+                // Allow scanning multiple students in a row
+                setTimeout(() => { qrScanLock = false; }, 1500);
+            } catch (err) {
+                document.getElementById('qrScannerStatus').textContent = 'Error: ' + err.message;
+                qrScanLock = false;
+            }
+        }
+
+        async function closeQrScanner() {
+            document.getElementById('qrScannerModal').style.display = 'none';
+            if (html5QrScanner) {
+                try { await html5QrScanner.stop(); } catch (_) {}
+                try { html5QrScanner.clear(); } catch (_) {}
+                html5QrScanner = null;
+            }
+        }
+
+        async function markStudentByAdminScan(uid) {
+            const sessionId = scanTargetSessionId;
+            if (!sessionId) {
+                document.getElementById('qrScannerStatus').textContent = '✗ No class selected.';
+                return;
+            }
+            const db = firebase.database();
+            const [userSnap, sessionSnap] = await Promise.all([
+                db.ref(`users/${uid}`).once('value'),
+                db.ref(`sessions/${sessionId}`).once('value')
+            ]);
+            const user = userSnap.val();
+            const session = sessionSnap.val();
+            if (!user) {
+                document.getElementById('qrScannerStatus').textContent = '✗ Unknown student.';
+                return;
+            }
+            if (!session) {
+                document.getElementById('qrScannerStatus').textContent = '✗ Selected class no longer exists.';
+                return;
+            }
+            const label = user.name || user.matricNo || uid.substring(0, 8);
+            const existing = await db.ref(`attendance/${sessionId}/${uid}`).once('value');
+            if (existing.exists()) {
+                document.getElementById('qrScannerStatus').textContent = `Already marked: ${label}`;
+                return;
+            }
+            await db.ref(`attendance/${sessionId}/${uid}`).set({
+                timestamp: Date.now(),
+                lat: session.adminLat || '',
+                lng: session.adminLng || '',
+                markedBy: 'admin_qr_scan'
+            });
+            document.getElementById('qrScannerStatus').textContent = `✓ ${label} marked present for ${scanTargetSessionLabel}!`;
+            // Refresh live list only if we marked into the currently active session
+            if (currentSession && currentSession.id === sessionId) loadLiveAttendance();
+        }
+
+        // Populate the admin's "Mark attendance for" dropdown with every session,
+        // newest first. Default to the active session if there is one.
+        async function loadAdminSessionPicker() {
+            const select = document.getElementById('scanTargetSession');
+            if (!select) return;
+            try {
+                const db = firebase.database();
+                const snap = await db.ref('sessions').once('value');
+                const sessions = snap.val() || {};
+                const entries = Object.entries(sessions)
+                    .map(([id, s]) => ({ id, ...s }))
+                    .sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+
+                if (entries.length === 0) {
+                    select.innerHTML = '<option value="">No classes yet — start a session first</option>';
+                    return;
+                }
+                let activeId = null;
+                const opts = entries.map(s => {
+                    const date = s.startTime ? new Date(s.startTime) : null;
+                    const dateStr = date ? date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown date';
+                    const topic = s.topic ? ` — ${s.topic}` : '';
+                    const status = s.active ? ' (Active)' : '';
+                    if (s.active && !activeId) activeId = s.id;
+                    return `<option value="${s.id}">${escapeHtml(dateStr + topic + status)}</option>`;
+                });
+                select.innerHTML = opts.join('');
+                if (activeId) select.value = activeId;
+            } catch (err) {
+                console.error('Failed to load sessions for picker:', err);
+                select.innerHTML = '<option value="">Failed to load classes</option>';
             }
         }
 
@@ -1029,16 +1447,25 @@
 
             try {
                 const db = firebase.database();
-                const attendanceRef = db.ref(`attendance/${currentSession.id}`);
-                const snapshot = await attendanceRef.once('value');
-                const attendance = snapshot.val() || {};
+                const [attendanceSnap, usersSnap] = await Promise.all([
+                    db.ref(`attendance/${currentSession.id}`).once('value'),
+                    db.ref('users').once('value')
+                ]);
+                const attendance = attendanceSnap.val() || {};
+                const users = usersSnap.val() || {};
 
                 const list = document.getElementById('attendanceList');
-                const items = Object.entries(attendance).map(([uid, record]) => {
+                // Sort newest-first so admin sees the most recent mark at the top
+                const entries = Object.entries(attendance).sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+                const items = entries.map(([uid, record]) => {
+                    const user = users[uid] || {};
+                    const name = user.name || 'Unknown';
+                    const matric = user.matricNo ? ` (${user.matricNo})` : '';
                     const date = new Date(record.timestamp);
                     const isLate = record.timestamp > (currentSession.startTime + 5 * 60 * 1000);
+                    const tag = record.markedBy === 'admin_qr_scan' ? ' <span style="font-size:0.75rem; background:#0891b2; color:#fff; padding:0.1rem 0.4rem; border-radius:4px; margin-left:0.4rem;">QR scan</span>' : '';
                     return `<div class="attendance-item ${isLate ? 'late' : ''}">
-                        ✓ ${uid.substring(0, 8)}... | ${date.toLocaleTimeString()}
+                        ✓ <strong>${escapeHtml(name)}</strong>${escapeHtml(matric)}${tag} <span style="float:right; color:#aaa; font-size:0.85rem;">${date.toLocaleTimeString()}</span>
                     </div>`;
                 });
 
@@ -1049,6 +1476,10 @@
             }
         }
 
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
         async function handleLogout() {
             try {
                 await firebase.auth().signOut();
@@ -1057,392 +1488,304 @@
                 alert('Error: ' + error.message);
             }
         }
-        // Automatically add default attendance for all users for specific dates if not already present
-        async function addDefaultAttendanceIfNeeded() {
-            const db = firebase.database();
-            const usersSnap = await db.ref('users').once('value');
-            const users = usersSnap.val() || {};
-            
-            // Use explicit timestamps for the 3 dates
-            // 27th March 2026, 10th April 2026, 17th April 2026 at 9:00 AM
-            const dates = [
-                { date: new Date(2026, 2, 27, 9, 0, 0).getTime(), label: 'March 27, 2026' },
-                { date: new Date(2026, 3, 10, 9, 0, 0).getTime(), label: 'April 10, 2026' },
-                { date: new Date(2026, 3, 17, 9, 0, 0).getTime(), label: 'April 17, 2026' }
-            ];
-            
-            console.log('Adding default attendance for dates:', dates.map(d => d.label));
-            
-            // Check if sessions for these dates already exist (by startTime and defaultSession flag)
-            const sessionsSnap = await db.ref('sessions').once('value');
-            const sessions = sessionsSnap.val() || {};
-            const existingDates = new Set();
-            Object.values(sessions).forEach(s => {
-                if (s && s.defaultSession) {
-                    dates.forEach(d => {
-                        if (s.startTime === d.date) {
-                            existingDates.add(d.date);
-                        }
-                    });
-                }
-            });
-            
-            console.log('Existing default dates:', existingDates);
-            
-            for (const d of dates) {
-                if (!existingDates.has(d.date)) {
-                    console.log('Creating session for:', d.label);
-                    // Create a session for this date
-                    const sessionRef = db.ref('sessions').push();
-                    const sessionId = sessionRef.key;
-                    await sessionRef.set({
-                        token: Math.random().toString(36).substring(2, 11),
-                        startTime: d.date,
-                        endTime: d.date + 60 * 60 * 1000, // 1 hour session
-                        active: false,
-                        adminLat: 0,
-                        adminLng: 0,
-                        adminDeviceId: 'default',
-                        defaultSession: true,
-                        topic: d.label
-                    });
-                    
-                    // Add attendance for all users (except admin)
-                    const userCount = Object.entries(users).filter(([uid, user]) => user.role !== 'admin').length;
-                    console.log(`Adding attendance for ${userCount} users for ${d.label}`);
-                    
-                    for (const [uid, user] of Object.entries(users)) {
-                        if (user.role !== 'admin') {
-                            await db.ref(`attendance/${sessionId}/${uid}`).set({
-                                timestamp: d.date + Math.floor(Math.random() * 1800000), // random time within 30 min
-                                deviceId: 'default',
-                                lat: '',
-                                lng: '',
-                                ip: ''
-                            });
-                        }
-                    }
-                }
+        // Manually mark attendance for a specific student on a specific date
+        async function markManualAttendance() {
+            const matricInput = document.getElementById('manualStudentMatric').value.trim();
+            const dateInput = document.getElementById('manualAttendanceDate').value;
+
+            if (!matricInput) {
+                alert('Please enter a student matric number.');
+                return;
             }
-            console.log('Default attendance setup complete');
-        }
-
-        // ========== CAMERA & QR SCANNING FUNCTIONS ==========
-        
-        let stream = null;
-        let scanningActive = false;
-        let scanInterval = null;
-
-        // Switch between manual and camera tabs
-        function switchAttendanceTab(tab) {
-            const manualForm = document.getElementById('attendanceForm');
-            const cameraTabDiv = document.getElementById('cameraTab');
-            const buttons = document.querySelectorAll('.btn-tab');
-            
-            if (tab === 'manual') {
-                manualForm.style.display = 'block';
-                cameraTabDiv.style.display = 'none';
-                buttons[0].style.background = '#3b82f6';
-                buttons[0].style.color = 'white';
-                buttons[1].style.background = '#e5e7eb';
-                buttons[1].style.color = '#374151';
-                stopCameraAdvanced();
-            } else {
-                manualForm.style.display = 'none';
-                cameraTabDiv.style.display = 'block';
-                buttons[0].style.background = '#e5e7eb';
-                buttons[0].style.color = '#374151';
-                buttons[1].style.background = '#3b82f6';
-                buttons[1].style.color = 'white';
-            }
-        }
-
-        // Start camera with proper error handling
-        async function startCameraAdvanced() {
-            try {
-                const statusDiv = document.getElementById('scanStatus');
-                statusDiv.textContent = '📍 Requesting camera permission...';
-                statusDiv.style.background = '#fff3cd';
-                statusDiv.style.color = '#856404';
-                
-                // Check browser support
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    statusDiv.textContent = '❌ Camera API not supported on this device/browser';
-                    statusDiv.style.background = '#f8d7da';
-                    statusDiv.style.color = '#721c24';
-                    console.error('Camera API not supported');
-                    return;
-                }
-
-                // Simple constraints that work on most devices
-                const constraints = {
-                    video: {
-                        facingMode: { ideal: 'environment' }
-                    },
-                    audio: false
-                };
-
-                console.log('Requesting camera with constraints:', constraints);
-                stream = await navigator.mediaDevices.getUserMedia(constraints);
-                console.log('Camera stream acquired:', stream);
-                
-                const video = document.getElementById('cameraStream');
-                
-                // Set up video element
-                video.srcObject = stream;
-                
-                // Ensure video plays
-                video.onloadedmetadata = () => {
-                    console.log('Video metadata loaded, attempting to play');
-                    video.play().then(() => {
-                        console.log('Video playing successfully');
-                    }).catch(err => {
-                        console.error('Video play error:', err);
-                        statusDiv.textContent = '❌ Could not start video playback';
-                        statusDiv.style.background = '#f8d7da';
-                        statusDiv.style.color = '#721c24';
-                    });
-                };
-
-                // Fallback: try to play even if metadata loading is slow
-                setTimeout(() => {
-                    if (video.readyState >= 2) {
-                        video.play().catch(e => console.error('Play error:', e));
-                    }
-                }, 500);
-
-                document.getElementById('startCameraBtn').style.display = 'none';
-                document.getElementById('stopCameraBtn').style.display = 'block';
-                cameraActive = true;
-                statusDiv.textContent = '📷 Camera active - scanning for QR codes...';
-                statusDiv.style.background = '#d4edda';
-                statusDiv.style.color = '#155724';
-
-                // Start QR detection loop
-                startQRScanning();
-
-            } catch (error) {
-                console.error('Camera error:', error);
-                const statusDiv = document.getElementById('scanStatus');
-                statusDiv.style.background = '#f8d7da';
-                statusDiv.style.color = '#721c24';
-                
-                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                    statusDiv.textContent = '🔒 Camera permission denied. Please enable in browser settings.';
-                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-                    statusDiv.textContent = '📷 No camera found on this device';
-                } else if (error.name === 'NotReadableError') {
-                    statusDiv.textContent = '⚠️ Camera in use by another app';
-                } else if (error.name === 'SecurityError') {
-                    statusDiv.textContent = '🔒 Camera blocked by security policy';
-                } else {
-                    statusDiv.textContent = `❌ ${error.message}`;
-                }
-                
-                document.getElementById('startCameraBtn').style.display = 'block';
-                document.getElementById('stopCameraBtn').style.display = 'none';
-            }
-        }
-
-        // Start QR code detection using canvas frame capture
-        function startQRScanning() {
-            if (scanningActive) return;
-            scanningActive = true;
-            console.log('Starting QR scanning');
-
-            const video = document.getElementById('cameraStream');
-            const canvas = document.getElementById('qrCanvas');
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-            scanInterval = setInterval(async () => {
-                if (!video.srcObject || !scanningActive) {
-                    clearInterval(scanInterval);
-                    console.log('QR scanning stopped');
-                    return;
-                }
-
-                try {
-                    // Only scan if video is actually playing
-                    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
-                        return;
-                    }
-
-                    // Capture current video frame
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    
-                    if (canvas.width === 0 || canvas.height === 0) {
-                        console.warn('Video dimensions not ready');
-                        return;
-                    }
-
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                    // Use ZXing to decode QR code
-                    if (window.ZXing) {
-                        try {
-                            const ZXing = window.ZXing;
-                            const luminanceSource = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
-                            const binaryBitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminanceSource));
-                            const result = new ZXing.MultiFormatReader().decode(binaryBitmap);
-                            
-                            if (result && result.text) {
-                                console.log('✓ QR Code detected:', result.text);
-                                handleQRCodeDetected(result.text);
-                                scanningActive = false;
-                                clearInterval(scanInterval);
-                            }
-                        } catch (e) {
-                            // No QR code in this frame - expected, continue scanning
-                        }
-                    }
-                } catch (error) {
-                    console.error('Frame processing error:', error);
-                }
-            }, 200); // Scan every 200ms for better performance
-        }
-
-        // Handle detected QR code
-        async function handleQRCodeDetected(token) {
-            const statusDiv = document.getElementById('scanStatus');
-            statusDiv.textContent = `✓ QR Code detected: ${token.substring(0, 12)}...`;
-            statusDiv.style.background = '#d4edda';
-            statusDiv.style.color = '#155724';
-            console.log('QR detected, marking attendance...');
-
-            await stopCameraAdvanced();
-            await markAttendanceWithToken(token);
-        }
-
-        // Stop camera
-        async function stopCameraAdvanced() {
-            try {
-                console.log('Stopping camera...');
-                scanningActive = false;
-                
-                if (scanInterval) {
-                    clearInterval(scanInterval);
-                    scanInterval = null;
-                }
-
-                if (stream) {
-                    stream.getTracks().forEach(track => {
-                        console.log('Stopping track:', track.kind);
-                        track.stop();
-                    });
-                    stream = null;
-                }
-
-                const video = document.getElementById('cameraStream');
-                video.srcObject = null;
-                video.pause();
-
-                document.getElementById('startCameraBtn').style.display = 'block';
-                document.getElementById('stopCameraBtn').style.display = 'none';
-                
-                const statusDiv = document.getElementById('scanStatus');
-                statusDiv.textContent = 'Camera stopped';
-                statusDiv.style.background = '#e2e3e5';
-                statusDiv.style.color = '#383d41';
-
-                cameraActive = false;
-                console.log('Camera stopped successfully');
-            } catch (error) {
-                console.error('Error stopping camera:', error);
-            }
-        }
-
-        // Mark attendance using QR token
-        async function markAttendanceWithToken(token) {
-            if (!navigator.geolocation) {
-                alert('Geolocation is not supported. Cannot mark attendance.');
+            if (!dateInput) {
+                alert('Please select a date and time.');
                 return;
             }
 
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const maxDistance = 5000;
+            try {
+                const db = firebase.database();
+                
+                // Find user by matric number
+                const usersSnap = await db.ref('users').once('value');
+                const users = usersSnap.val() || {};
+                let foundUser = null;
+                let foundUid = null;
+
+                for (const [uid, user] of Object.entries(users)) {
+                    if (user.matricNo && user.matricNo.toUpperCase() === matricInput.toUpperCase()) {
+                        foundUser = user;
+                        foundUid = uid;
+                        break;
+                    }
+                }
+
+                if (!foundUser) {
+                    alert(`Student with matric number "${matricInput}" not found.`);
+                    return;
+                }
+
+                // Parse the selected date/time
+                const selectedDate = new Date(dateInput);
+                const timestamp = selectedDate.getTime();
+
+                // Find or create a session for this date
+                const sessionsSnap = await db.ref('sessions').once('value');
+                const sessions = sessionsSnap.val() || {};
+                let sessionId = null;
+                
+                // Look for a session with matching date (same day)
+                const targetDateStart = new Date(selectedDate);
+                targetDateStart.setHours(0, 0, 0, 0);
+                const targetDateEnd = new Date(selectedDate);
+                targetDateEnd.setHours(23, 59, 59, 999);
+
+                for (const [sId, session] of Object.entries(sessions)) {
+                    if (session && session.startTime >= targetDateStart.getTime() && session.startTime <= targetDateEnd.getTime()) {
+                        sessionId = sId;
+                        break;
+                    }
+                }
+
+                // If no session exists for this date, create one
+                if (!sessionId) {
+                    const sessionRef = db.ref('sessions').push();
+                    sessionId = sessionRef.key;
+                    const sessionDate = new Date(selectedDate);
+                    sessionDate.setHours(9, 0, 0, 0);
+                    
+                    await sessionRef.set({
+                        token: Math.random().toString(36).substring(2, 11),
+                        startTime: sessionDate.getTime(),
+                        endTime: sessionDate.getTime() + 60 * 60 * 1000,
+                        active: false,
+                        adminLat: 0,
+                        adminLng: 0,
+                        adminDeviceId: 'admin',
+                        topic: selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    });
+                }
+
+                // Mark attendance
+                await db.ref(`attendance/${sessionId}/${foundUid}`).set({
+                    timestamp: timestamp,
+                    deviceId: 'admin_manual',
+                    lat: '',
+                    lng: '',
+                    ip: '',
+                    markedBy: 'admin_manual'
+                });
+
+                alert(`✓ Attendance marked for ${foundUser.name} (${matricInput}) on ${selectedDate.toLocaleString()}`);
+                document.getElementById('manualStudentMatric').value = '';
+                document.getElementById('manualAttendanceDate').value = '';
+                
+                // Refresh if this is the current session
+                if (currentSession) loadLiveAttendance();
+            } catch (error) {
+                console.error('Error marking attendance:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        let qrScanner = null;
+        let scannerActive = false;
+
+        async function toggleQRScanner() {
+            if (scannerActive) {
+                closeQRScanner();
+            } else {
+                startQRScanner();
+            }
+        }
+
+        async function startQRScanner() {
+            if (scannerActive || !currentSession) return;
+
+            const video = document.getElementById('qrVideo');
+            const statusText = document.getElementById('scanStatusText');
+            const scanStatus = document.getElementById('scanStatus');
+            const toggleBtn = document.getElementById('toggleScannerBtn');
+            const indicator = document.getElementById('scanIndicator');
+
+            try {
+                statusText.textContent = 'Requesting camera access...';
+
+                let stream;
                 try {
-                    const db = firebase.database();
-                    const sessionsRef = db.ref('sessions');
-                    const snapshot = await sessionsRef.once('value');
-                    const sessions = snapshot.val() || {};
+                    // ideal (not exact) — won't hard-fail if rear camera is unavailable
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+                    });
+                } catch (e) {
+                    // Fall back to any camera on this device
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                }
 
-                    let session = null;
-                    let sessionId = null;
-                    for (const [id, s] of Object.entries(sessions)) {
-                        if (s && s.token === token && s.active) {
-                            session = s;
-                            sessionId = id;
-                            break;
-                        }
-                    }
+                video.srcObject = stream;
 
-                    if (!session) {
-                        document.getElementById('scanStatus').textContent = '❌ Invalid or inactive session token';
-                        document.getElementById('scanStatus').style.background = '#f8d7da';
-                        document.getElementById('scanStatus').style.color = '#721c24';
-                        return;
-                    }
+                // Wait for metadata so the video has real dimensions before play()
+                // — skipping this is the most common cause of a black screen
+                await new Promise((resolve) => {
+                    if (video.readyState >= 2) { resolve(); return; }
+                    video.onloadedmetadata = resolve;
+                    setTimeout(resolve, 3000); // safety timeout
+                });
 
-                    // Check distance from admin
-                    if (session.adminLat && session.adminLng) {
-                        const distance = getDistance(
-                            position.coords.latitude, position.coords.longitude,
-                            session.adminLat, session.adminLng
-                        );
-                        if (distance > maxDistance) {
-                            document.getElementById('scanStatus').textContent = `❌ Too far from admin (${Math.round(distance)}m). Max: ${maxDistance}m.`;
-                            document.getElementById('scanStatus').style.background = '#f8d7da';
-                            document.getElementById('scanStatus').style.color = '#721c24';
+                try { await video.play(); } catch (_) {}
+
+                scannerActive = true;
+                toggleBtn.textContent = '⏹️ Stop Scanner';
+                toggleBtn.style.background = '#dc2626';
+                statusText.textContent = 'Scanner active — hold student QR in front of camera';
+                scanStatus.style.background = '#d1fae5';
+                scanStatus.style.border = '1px solid #6ee7b7';
+                statusText.style.color = '#065f46';
+                indicator.style.display = 'block';
+
+                // Start scanning loop
+                requestAnimationFrame(scanQRFrame);
+            } catch (error) {
+                console.error('Camera access error:', error);
+                statusText.textContent = '❌ Camera access denied. Please allow camera permission and try again.';
+                scanStatus.style.background = '#fee2e2';
+                scanStatus.style.border = '1px solid #fca5a5';
+                statusText.style.color = '#991b1b';
+            }
+        }
+
+        function scanQRFrame() {
+            if (!scannerActive) return;
+
+            const video = document.getElementById('qrVideo');
+            const canvas = document.getElementById('qrCanvas');
+            const ctx = canvas.getContext('2d');
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                try {
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    // Use jsQR library
+                    if (typeof jsQR !== 'undefined') {
+                        const code = jsQR(imageData.data, canvas.width, canvas.height);
+                        if (code) {
+                            handleScannedQRCode(code.data);
                             return;
                         }
                     }
-
-                    // Check if already marked attendance
-                    const existingAttendance = await db.ref(`attendance/${sessionId}/${currentUser.uid}`).once('value');
-                    if (existingAttendance.exists()) {
-                        document.getElementById('scanStatus').textContent = '⚠️ Already marked attendance for this session!';
-                        document.getElementById('scanStatus').style.background = '#fff3cd';
-                        document.getElementById('scanStatus').style.color = '#856404';
-                        return;
-                    }
-
-                    // Mark attendance
-                    await db.ref(`attendance/${sessionId}/${currentUser.uid}`).set({
-                        timestamp: Date.now(),
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                        ip: null
-                    });
-
-                    document.getElementById('scanStatus').textContent = '✅ Attendance marked successfully!';
-                    document.getElementById('scanStatus').style.background = '#d4edda';
-                    document.getElementById('scanStatus').style.color = '#155724';
-                    
-                    alert('✓ Attendance marked!');
-                    switchAttendanceTab('manual');
-                    loadStudentDashboard();
-                    
-                } catch (error) {
-                    document.getElementById('scanStatus').textContent = `❌ Error: ${error.message}`;
-                    document.getElementById('scanStatus').style.background = '#f8d7da';
-                    document.getElementById('scanStatus').style.color = '#721c24';
-                    console.error('Attendance error:', error);
+                } catch (err) {
+                    console.log('QR scan attempt...');
                 }
-            }, (error) => {
-                document.getElementById('scanStatus').textContent = `❌ Location error: ${error.message}`;
-                document.getElementById('scanStatus').style.background = '#f8d7da';
-                document.getElementById('scanStatus').style.color = '#721c24';
-            });
+            }
+
+            requestAnimationFrame(scanQRFrame);
         }
 
-        // Keep old functions for compatibility
-        async function startCamera() {
-            startCameraAdvanced();
+        async function handleScannedQRCode(qrData) {
+            if (!currentSession || !scannerActive) return;
+
+            try {
+                const db = firebase.database();
+                
+                // Parse QR data
+                let identifier = qrData;
+                if (qrData.startsWith('ATTEND:STUDENT:')) {
+                    identifier = qrData.split(':')[2]; // Extract UID
+                }
+                
+                // Try to find student by identifier (could be uid or matric number)
+                const usersSnap = await db.ref('users').once('value');
+                const users = usersSnap.val() || {};
+                
+                let foundUser = null;
+                let foundUid = null;
+
+                // First try to match by UID
+                if (users[identifier]) {
+                    foundUser = users[identifier];
+                    foundUid = identifier;
+                } else {
+                    // Try to match by matric number
+                    for (const [uid, user] of Object.entries(users)) {
+                        if (user.matricNo && user.matricNo === identifier) {
+                            foundUser = user;
+                            foundUid = uid;
+                            break;
+                        }
+                    }
+                }
+
+                if (!foundUser) {
+                    console.log(`Student with identifier "${identifier}" not found.`);
+                    return;
+                }
+
+                // Check if already marked in this session
+                const attendanceRef = db.ref(`attendance/${currentSession.id}/${foundUid}`);
+                const existingAttendance = await attendanceRef.once('value');
+
+                if (existingAttendance.exists()) {
+                    console.log(`${foundUser.name} already marked in this session.`);
+                    return;
+                }
+
+                // Mark attendance
+                await attendanceRef.set({
+                    timestamp: Date.now(),
+                    deviceId: 'qr_scan',
+                    lat: '',
+                    lng: '',
+                    ip: '',
+                    markedBy: 'admin_qr_scan'
+                });
+
+                // Success feedback
+                const statusText = document.getElementById('scanStatusText');
+                statusText.textContent = `✓ ${foundUser.name} marked present`;
+                statusText.style.background = '#d1fae5';
+                statusText.style.color = '#065f46';
+
+                // Refresh attendance list
+                loadLiveAttendance();
+
+                // Reset status after 2 seconds
+                setTimeout(() => {
+                    if (scannerActive) {
+                        statusText.textContent = 'Scanner active - hold QR code in front of camera';
+                        statusText.style.background = '#d1fae5';
+                        statusText.style.color = '#065f46';
+                    }
+                }, 2000);
+
+                console.log(`✓ ${foundUser.name} (${foundUser.matricNo}) marked present`);
+            } catch (error) {
+                console.error('Error processing QR code:', error);
+            }
         }
 
-        async function stopCamera() {
-            stopCameraAdvanced();
+        function closeQRScanner() {
+            scannerActive = false;
+            const video = document.getElementById('qrVideo');
+            
+            if (video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
+            }
+
+            const toggleBtn = document.getElementById('toggleScannerBtn');
+            const statusText = document.getElementById('scanStatusText');
+            const indicator = document.getElementById('scanIndicator');
+
+            toggleBtn.textContent = '📷 Start Scanner';
+            toggleBtn.style.background = 'linear-gradient(135deg, #059669 0%, #0891b2 100%)';
+            statusText.textContent = 'Camera closed';
+            statusText.style.background = '#f3f4f6';
+            statusText.style.color = '#666';
+            indicator.style.display = 'none';
         }
     </script>
 </body>

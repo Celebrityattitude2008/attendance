@@ -1,5 +1,13 @@
 {
   "rules": {
+    "users": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "password_reset_requests": {
+      ".read": "auth != null",
+      ".write": true
+    },
     ".read": "auth != null",
     ".write": "auth != null"
   }
