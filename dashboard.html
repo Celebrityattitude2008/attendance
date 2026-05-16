@@ -657,7 +657,9 @@
             // Render the student's permanent personal QR code as soon as the view is shown.
             renderMyQrCode();
             await loadAdvertisement();
-            attachStudentAdInterceptor();
+                attachStudentAdInterceptor();
+                // Start automatic ad display loop for students
+                startAutoAdLoop();
             try {
                 const db = firebase.database();
                 const attendanceRef = db.ref('attendance');
@@ -825,6 +827,31 @@
             adPopupEnabled = false;
             setTimeout(() => { adPopupEnabled = true; }, 0);
             button.click();
+        }
+
+        // Automatic ad display loop (shows ad every 10 seconds when active)
+        let autoAdIntervalId = null;
+        function startAutoAdLoop() {
+            stopAutoAdLoop();
+            // Show ad every 10 seconds if active and modal not already visible
+            autoAdIntervalId = setInterval(() => {
+                try {
+                    if (!activeAd || !adPopupEnabled) return;
+                    const modal = document.getElementById('adModal');
+                    if (!modal) return;
+                    if (modal.style.display === 'flex') return;
+                    showAdModal();
+                } catch (e) {
+                    console.error('Auto ad loop error:', e);
+                }
+            }, 10000);
+        }
+
+        function stopAutoAdLoop() {
+            if (autoAdIntervalId) {
+                clearInterval(autoAdIntervalId);
+                autoAdIntervalId = null;
+            }
         }
 
         function openAdWhatsApp() {
