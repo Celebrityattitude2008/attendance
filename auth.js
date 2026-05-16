@@ -141,6 +141,12 @@ async function signInWithGoogle(role) {
     provider.setCustomParameters({ prompt: 'select_account' });
     const result = await firebase.auth().signInWithPopup(provider);
     const user = result.user;
+
+    if (role === 'admin' && !isAdminEmail(user.email)) {
+        await firebase.auth().signOut();
+        throw new Error('Only pauladamu600@gmail.com is allowed to sign in as admin.');
+    }
+
     await ensureUserRecord(user, role, role === 'admin' ? 'Administrator' : '');
     return user;
 }
