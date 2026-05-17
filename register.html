@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verix - Register</title>
+    <title>Prella - Register</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -78,15 +78,19 @@
             const department = document.getElementById('regDepartment').value;
             const password = document.getElementById('regPassword').value;
             const errorDiv = document.getElementById('errorMessage');
+            const submitButton = document.querySelector('#registerForm button[type="submit"]');
 
             errorDiv.classList.remove('show');
+            setButtonLoading(submitButton);
 
             if (!department) {
+                clearButtonLoading(submitButton);
                 showError(errorDiv, 'Please select a department');
                 return;
             }
 
             if (password.length < 6) {
+                clearButtonLoading(submitButton);
                 showError(errorDiv, 'Password must be at least 6 characters');
                 return;
             }
@@ -109,6 +113,8 @@
                 window.location.href = 'dashboard.html';
             } catch (error) {
                 showError(errorDiv, error.message);
+            } finally {
+                clearButtonLoading(submitButton);
             }
         }
 
@@ -117,5 +123,6 @@
             element.classList.add('show');
         }
     </script>
+    <div id="globalSpinner"><div class="spinner"></div></div>
 </body>
 </html>

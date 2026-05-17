@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prella - Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        .skeleton { background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 0.25rem; }
+        .skeleton-text { height: 1rem; margin-bottom: 0.5rem; }
+        .skeleton-box { height: 6.25rem; margin-bottom: 0.625rem; }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+        #map { height: 350px; width: 100%; border-radius: 0.75rem; margin-top: 1rem; }
+        .map-legend { display: flex; gap: 1rem; margin-top: 0.625rem; font-size: 0.8125rem; }
+        .legend-item { display: flex; align-items: center; gap: 0.3125rem; }
+        .legend-dot { width: 0.75rem; height: 0.75rem; border-radius: 50%; }
+        .legend-dot.admin { background: #e74c3c; }
+        .legend-dot.user { background: #3498db; }
+        .ad-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 10050;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.7);
+            padding: 20px;
+        }
+        .ad-modal-content {
+            width: min(620px, 100%);
+            max-height: 90vh;
+            overflow-y: auto;
+            background: #111827;
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+            color: #f8fafc;
+            text-align: center;
+            position: relative;
+        }
+        .ad-modal-content img {
+            width: 100%;
+            height: auto;
+            border-radius: 18px;
+            margin-bottom: 18px;
+            object-fit: contain;
+            max-height: 360px;
+        }
+        .ad-modal-content .ad-caption {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #e2e8f0;
+            margin-bottom: 20px;
+        }
+        .ad-modal-content .ad-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 14px;
+        }
+        .ad-modal-content .ad-actions button {
+            min-width: 140px;
+        }
+        .ad-admin-card textarea {
+            width: 100%;
+            min-height: 120px;
+            background: #111827;
+            color: #f8fafc;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 12px;
+            resize: vertical;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+        }
+        .ad-admin-card .form-group input,
+        .ad-admin-card .form-group textarea {
+            width: 100%;
+        }
+        .ad-admin-card .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #cbd5e1;
+        }
+        .ad-admin-card .form-note {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-top: 6px;
+        }
+        @media (max-width: 640px) {
+            .dashboard-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+            .logout-btn { width: 100%; justify-content: center; }
+            .session-control { padding: 1rem; }
+            .department-card { min-width: 100% !important; max-width: 100% !important; }
+            #map { height: 250px; }
+            .map-legend { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-wrapper">
+        <div class="dashboard-header">
+            <div>
+                <h1>Admin Dashboard</h1>
+                <p id="userInfo"></p>
+            </div>
+            <button class="logout-btn" onclick="handleLogout()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1.25rem" height="1.25rem"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Logout
+            </button>
+        </div>
+
+        <div id="skeletonLoader" class="skeleton-loader">
+            <div class="skeleton skeleton-text" style="width: 60%;"></div>
+            <div class="skeleton skeleton-text" style="width: 40%;"></div>
+            <div class="skeleton skeleton-box"></div>
+        </div>
+
+        <div id="mainContent" style="display: none;">
+            <div id="adminView" style="display: none;">
+                <div class="stats-grid">
+                    <div class="stat-card gradient-blue">
+                        <div class="stat-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <p class="stat-label">Total Students</p>
+                        <p class="stat-value" id="totalStudents">0</p>
+                    </div>
+                    <div class="stat-card gradient-purple">
+                        <div class="stat-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+                        </div>
+                        <p class="stat-label">Departments</p>
+                        <p class="stat-value" id="totalDepartments">0</p>
+                    </div>
+                    <div class="stat-card gradient-green">
+                        <div class="stat-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        </div>
+                        <p class="stat-label">Active Session</p>
+                        <p class="stat-value" id="sessionStatusText">Inactive</p>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card fade-in-up" style="animation-delay: 0.1s;">
+                        <div class="session-control-header">
+                            <div class="icon-box">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            </div>
+                            <h3>Session Control</h3>
+                        </div>
+                        <div id="sessionStatus"></div>
+                        <button id="startBtn" class="btn-primary" onclick="startSession()">Start New Session</button>
+                        <button id="endBtn" class="btn-primary" onclick="endSession()" style="display: none; background: #dc2626;">Stop Session</button>
+                    </div>
+
+                    <div class="card fade-in-up" id="qrSection" style="animation-delay: 0.15s; display: none;">
+                        <div class="session-control-header">
+                            <div class="icon-box indigo">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            </div>
+                            <h3>Share Session With Students</h3>
+                        </div>
+                        <p style="color:#666; font-size:0.875rem; margin-bottom:0.75rem;">
+                            Students can <strong>scan the QR</strong> below or <strong>type the token</strong> manually.
+                        </p>
+                        <div style="background:#f3f4f6; border-radius:0.5rem; padding:0.75rem 1rem; margin-bottom:1rem; display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                            <div style="flex:1; min-width:160px;">
+                                <div style="font-size:0.75rem; color:#666; text-transform:uppercase; letter-spacing:0.05em;">Session Token</div>
+                                <div id="sessionTokenDisplay" style="font-family:monospace; font-size:1.25rem; font-weight:600; color:#111; word-break:break-all;">—</div>
+                            </div>
+                            <button type="button" id="copyTokenBtn" class="btn-primary" onclick="copySessionToken()" style="padding:0.5rem 1rem; font-size:0.875rem;">Copy</button>
+                        </div>
+                        <div class="qr-display">
+                            <img id="qrCode" src="" alt="Session QR Code">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card fade-in-up" id="scanStudentQRSection" style="animation-delay: 0.18s; display: none;">
+                    <div class="session-control-header">
+                        <div class="icon-box" style="background:linear-gradient(135deg, #059669 0%, #0891b2 100%);">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                        </div>
+                        <h3>Scan Student QR to Mark Present</h3>
+                    </div>
+                    <p style="color:#666; font-size:0.875rem; margin-bottom:1rem;">
+                        Hold student QR code in front of camera to mark them present in the current session.
+                    </p>
+                    <div id="qrScannerContainer" style="position: relative; background: #000; border-radius: 0.5rem; overflow: hidden; margin-bottom: 1rem;">
+                        <video id="qrVideo" autoplay playsinline muted style="width: 100%; height: auto; display: block; min-height: 300px;"></video>
+                        <canvas id="qrCanvas" style="display: none;"></canvas>
+                        <div id="scanIndicator" style="position: absolute; top: 10px; right: 10px; background: rgba(255,0,0,0.7); color: white; padding: 8px 12px; border-radius: 4px; font-size: 0.875rem; display: none;">Scanning...</div>
+                    </div>
+                    <div id="scanStatus" style="background: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem; color: #1e40af; font-size: 0.875rem; text-align: center;">
+                        <span id="scanStatusText">Press Start Scanner to begin</span>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" id="toggleScannerBtn" class="btn-primary" onclick="toggleQRScanner()" style="flex: 1; background: linear-gradient(135deg, #059669 0%, #0891b2 100%);">📷 Start Scanner</button>
+                        <button type="button" onclick="closeQRScanner()" style="flex: 1; background: #dc2626; color: white; border: none; border-radius: 0.5rem; padding: 0.625rem; cursor: pointer; font-weight: 500;">Close</button>
+                    </div>
+                </div>
+
+                <div class="card fade-in-up" id="pendingResetsSection" style="animation-delay: 0.22s; display: none;">
+                    <div class="session-control-header">
+                        <div class="icon-box" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </div>
+                        <h3>Pending Password Resets (<span id="pendingResetsCount">0</span>)</h3>
+                    </div>
+                    <p style="color:#666; font-size:0.875rem; margin-bottom:1rem;">Students who requested a password reset. Accept to generate temporary password or reject the request.</p>
+                    <div id="pendingResetsList"></div>
+                </div>
+
+                <div class="card fade-in-up ad-admin-card" style="animation-delay: 0.22s;">
+                    <div class="session-control-header">
+                        <div class="icon-box" style="background:linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M6 7v12M18 7v12M8 11h8M8 15h5"/></svg>
+                        </div>
+                        <h3>Ad Manager</h3>
+                    </div>
+                    <p style="color:#666; font-size:0.875rem; margin-bottom:1rem;">Add an ad flyer, caption, WhatsApp contact, and keep it active for 48 hours.</p>
+                    <div class="form-group">
+                        <label for="adImageFile">Flyer Image</label>
+                        <input id="adImageFile" type="file" accept="image/*" onchange="loadAdImageFromFile(event)">
+                    </div>
+                    <div class="form-group">
+                        <label for="adImageBase64">Or paste base64 image data</label>
+                        <textarea id="adImageBase64" placeholder="Paste base64 encoded image here"></textarea>
+                        <div class="form-note">If you paste base64 manually, the image preview will update after you save.</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="adCaptionInput">Caption</label>
+                        <input id="adCaptionInput" type="text" placeholder="Ad caption or headline" style="background:#111827; color:#f8fafc; border:1px solid #374151; border-radius:0.5rem; padding:0.75rem;">
+                    </div>
+                    <div class="form-group">
+                        <label for="adWhatsappInput">WhatsApp Number</label>
+                        <input id="adWhatsappInput" type="text" placeholder="e.g. +2347012345678" style="background:#111827; color:#f8fafc; border:1px solid #374151; border-radius:0.5rem; padding:0.75rem;">
+                    </div>
+                    <div class="form-group">
+                        <label>Preview</label>
+                        <img id="adImagePreview" src="" alt="Ad preview" style="width:100%; border-radius:0.75rem; background:#111827; object-fit:contain; max-height:280px;">
+                    </div>
+                    <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1rem;">
+                        <button type="button" class="btn-primary" onclick="saveAdvertisement()" style="flex:1;">Save Ad</button>
+                        <button type="button" class="btn-primary" onclick="clearAdvertisement()" style="flex:1; background:#dc2626;">Clear Ad</button>
+                    </div>
+                    <div id="adStatus" style="margin-top:1rem; color:#cbd5e1; font-size:0.9rem;"></div>
+                </div>
+
+                <div class="card fade-in-up" style="animation-delay: 0.19s;">
+                    <div class="session-control-header">
+                        <div class="icon-box" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </div>
+                        <h3>Manual Mark Attendance</h3>
+                    </div>
+                    <p style="color:#666; font-size:0.875rem; margin-bottom:1rem;">
+                        Manually mark attendance for any student on any date.
+                    </p>
+                    <div class="form-group">
+                        <label for="manualStudentMatric">Student Matric Number</label>
+                        <input id="manualStudentMatric" type="text" placeholder="Enter student matric number" style="width:100%; padding:0.625rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem; font-size:0.95rem;">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualAttendanceDate">Date</label>
+                        <input id="manualAttendanceDate" type="datetime-local" style="width:100%; padding:0.625rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem; font-size:0.95rem;">
+                    </div>
+                    <button type="button" class="btn-primary" onclick="markManualAttendance()" style="width:100%; background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">✓ Mark Attendance</button>
+                </div>
+
+                <div class="card fade-in-up" style="animation-delay: 0.2s;">
+                    <div class="session-control-header">
+                        <div class="icon-box green">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        </div>
+                        <h3>Live Location Map</h3>
+                    </div>
+                    <div id="map"></div>
+                    <div class="map-legend">
+                        <div class="legend-item"><span class="legend-dot admin"></span> Admin Location</div>
+                        <div class="legend-item"><span class="legend-dot user"></span> User Locations</div>
+                    </div>
+                </div>
+
+                <div class="card fade-in-up" style="animation-delay: 0.25s;">
+                    <div class="session-control-header">
+                        <div class="icon-box">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <h3>Live Attendance (<span id="attendanceCount">0</span>)</h3>
+                    </div>
+                    <div class="attendance-list" id="attendanceList"></div>
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button id="downloadAttendanceBtn" class="btn-primary" style="flex: 1; min-width: 150px;">Download Session CSV</button>
+                        <button id="downloadAllAttendanceBtn" class="btn-primary" style="flex: 1; min-width: 150px; background: linear-gradient(135deg, #059669 0%, #0891b2 100%);">Download All CSV</button>
+                    </div>
+                </div>
+
+                <div class="card fade-in-up" style="animation-delay: 0.3s;">
+                    <div class="session-control-header">
+                        <div class="icon-box indigo">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/></svg>
+                        </div>
+                        <h3>Attendance by Department</h3>
+                    </div>
+                    <div id="departmentAttendanceCards" class="department-cards">
+                        <div class="skeleton skeleton-text" style="width: 200px;"></div>
+                    </div>
+                </div>
+
+                <div id="departmentAttendanceModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); align-items:center; justify-content:center; z-index:1000;">
+                    <div class="card slide-in" style="min-width: 350px; max-width: 90vw; max-height: 90vh; overflow:auto; position:relative; background: #030213; color: white;">
+                        <button onclick="closeDepartmentAttendanceModal()" style="position:absolute; top:10px; right:10px; background:#dc2626; color:#fff; border:none; border-radius:0.25rem; padding:0.25rem 0.625rem; cursor:pointer;">Close</button>
+                        <h3 id="modalDepartmentTitle" style="color:#fff;"></h3>
+                        <div id="departmentAttendanceTable"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        let currentUser = null;
+        let currentSession = null;
+        let map = null;
+        let userMarkers = {};
+        let adminMarker = null;
+        let scannerActive = false;
+
+        firebase.auth().onAuthStateChanged(async user => {
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+            const db = firebase.database();
+            const userRef = db.ref(`users/${user.uid}`);
+            const snapshot = await userRef.once('value');
+            const userData = snapshot.val();
+            if (userData?.role !== 'admin') {
+                await firebase.auth().signOut();
+                window.location.href = 'login.html';
+                return;
+            }
+            document.getElementById('userInfo').textContent = 'Admin - ' + (userData?.name || user.email);
+            document.getElementById('skeletonLoader').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('adminView').style.display = 'block';
+            loadAdminDashboard();
+        });
+
+        function initMap() {
+            if (map) return;
+            map = L.map('map').setView([0, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        async function updateMapLocations() {
+            if (!currentSession || !currentSession.active) return;
+            initMap();
+            const db = firebase.database();
+            if (currentSession.adminLat && currentSession.adminLng) {
+                if (adminMarker) {
+                    adminMarker.setLatLng([currentSession.adminLat, currentSession.adminLng]);
+                } else {
+                    adminMarker = L.marker([currentSession.adminLat, currentSession.adminLng], {
+                        icon: L.divIcon({ className: 'admin-marker', html: '<div style="background:#e74c3c; width:20px; height:20px; border-radius:50%; border:3px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>', iconSize: [20, 20] })
+                    }).addTo(map).bindPopup('Admin Location');
+                }
+                map.setView([currentSession.adminLat, currentSession.adminLng], 15);
+            }
+            const attendanceSnap = await db.ref(`attendance/${currentSession.id}`).once('value');
+            const attendance = attendanceSnap.val() || {};
+            for (const [uid, record] of Object.entries(attendance)) {
+                if (record.lat && record.lng) {
+                    if (userMarkers[uid]) {
+                        userMarkers[uid].setLatLng([record.lat, record.lng]);
+                    } else {
+                        userMarkers[uid] = L.marker([record.lat, record.lng], {
+                            icon: L.divIcon({ className: 'user-marker', html: '<div style="background:#3498db; width:16px; height:16px; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>', iconSize: [16, 16] })
+                        }).addTo(map).bindPopup(`User: ${uid.substring(0, 8)}...`);
+                    }
+                }
+            }
+        }
+
+        function startMapPolling() {
+            setInterval(() => {
+                if (currentSession && currentSession.active) {
+                    updateMapLocations();
+                }
+            }, 3000);
+        }
+
+        function displaySessionStatus() {
+            const statusDiv = document.getElementById('sessionStatus');
+            statusDiv.innerHTML = `<div class="session-status">✓ Session Active</div>`;
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('endBtn').style.display = 'block';
+            document.getElementById('qrSection').style.display = 'block';
+            document.getElementById('scanStudentQRSection').style.display = 'block';
+            const tokenDisplay = document.getElementById('sessionTokenDisplay');
+            if (tokenDisplay) tokenDisplay.textContent = currentSession.token;
+            const qrToken = currentSession.token;
+            const qrContainer = document.getElementById('qrCode');
+            if (typeof QRCode !== 'undefined' && typeof QRCode.toDataURL === 'function') {
+                qrContainer.src = '';
+                qrContainer.alt = 'Generating...';
+                QRCode.toDataURL(qrToken, { width: 256, margin: 1 }, (err, url) => {
+                    if (err) {
+                        console.error('QR Code generation error:', err);
+                        qrContainer.alt = 'QR generation failed';
+                    } else {
+                        qrContainer.src = url;
+                        qrContainer.alt = 'QR Code';
+                    }
+                });
+            } else {
+                qrContainer.alt = 'QR Code library not loaded';
+                console.error('QRCode.js is not loaded!');
+            }
+        }
+
+        function displayNoSession() {
+            const statusDiv = document.getElementById('sessionStatus');
+            statusDiv.innerHTML = '<p style="color: #999;">No active session</p>';
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('endBtn').style.display = 'none';
+            document.getElementById('qrSection').style.display = 'none';
+            document.getElementById('scanStudentQRSection').style.display = 'none';
+            closeQRScanner();
+        }
+
+        function getDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        async function startSession() {
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported. Cannot start session.');
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                try {
+                    const db = firebase.database();
+                    const token = Math.random().toString(36).substring(2, 11);
+                    const startTime = Date.now();
+                    const durationMinutes = 30;
+                    const endTime = startTime + (durationMinutes * 60 * 1000);
+                    const newSessionRef = db.ref('sessions').push();
+                    await newSessionRef.set({
+                        token,
+                        startTime,
+                        endTime,
+                        active: true,
+                        adminLat: position.coords.latitude,
+                        adminLng: position.coords.longitude
+                    });
+                    currentSession = { id: newSessionRef.key, token, startTime, endTime, active: true, adminLat: position.coords.latitude, adminLng: position.coords.longitude };
+                    displaySessionStatus();
+                    loadLiveAttendance();
+                    startAttendancePolling();
+                    startMapPolling();
+                    alert(`Session started! Valid for ${durationMinutes} minutes. Your location is saved.`);
+                } catch (error) {
+                    alert('Error starting session: ' + error.message);
+                }
+            }, (error) => {
+                alert('Location error: ' + error.message + '. Please enable location to start session.');
+            });
+        }
+
+        async function endSession() {
+            try {
+                const db = firebase.database();
+                await db.ref(`sessions/${currentSession.id}`).update({ active: false });
+                currentSession = null;
+                displayNoSession();
+                const list = document.getElementById('attendanceList');
+                if (list) list.innerHTML = '<p style="color: #999;">No active session</p>';
+                document.getElementById('attendanceCount').textContent = '0';
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function downloadAttendanceCSV() {
+            if (!currentSession || !currentSession.id) {
+                alert('No active session to download attendance from.');
+                return;
+            }
+            try {
+                const db = firebase.database();
+                const attendanceRef = db.ref('attendance/' + currentSession.id);
+                const snapshot = await attendanceRef.once('value');
+                const attendance = snapshot.val() || {};
+                let csv = 'Matric No,Name,Department,Email,Timestamp,Latitude,Longitude\n';
+                for (const [uid, record] of Object.entries(attendance)) {
+                    const userSnap = await db.ref('users/' + uid).once('value');
+                    const user = userSnap.val() || {};
+                    const timestamp = record.timestamp ? new Date(record.timestamp).toLocaleString() : '';
+                    csv += `${user.matricNo || ''},${user.name || ''},${user.department || ''},${user.email || ''},${timestamp},${record.lat || ''},${record.lng || ''}\n`;
+                }
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `attendance_${currentSession.token}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Failed to download attendance: ' + err.message);
+            }
+        }
+
+        async function downloadAllAttendanceCSV() {
+            try {
+                const db = firebase.database();
+                const attendanceRef = db.ref('attendance');
+                const snapshot = await attendanceRef.once('value');
+                const allAttendance = snapshot.val() || {};
+                const usersSnap = await db.ref('users').once('value');
+                const users = usersSnap.val() || {};
+                const sessionsSnap = await db.ref('sessions').once('value');
+                const sessions = sessionsSnap.val() || {};
+                let csv = 'Session ID,Session Date,Matric No,Name,Department,Email,Timestamp,Latitude,Longitude\n';
+                for (const [sessionId, sessionAttendance] of Object.entries(allAttendance)) {
+                    const session = sessions[sessionId] || {};
+                    const sessionDate = session.startTime ? new Date(session.startTime).toLocaleDateString() : sessionId;
+                    for (const [uid, record] of Object.entries(sessionAttendance)) {
+                        const user = users[uid] || {};
+                        const timestamp = record.timestamp ? new Date(record.timestamp).toLocaleString() : '';
+                        csv += `${sessionId},${sessionDate},${user.matricNo || ''},${user.name || ''},${user.department || ''},${user.email || ''},${timestamp},${record.lat || ''},${record.lng || ''}\n`;
+                    }
+                }
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `all_attendance_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('Failed to download all attendance: ' + err.message);
+            }
+        }
+
+        function copySessionToken() {
+            if (!currentSession || !currentSession.token) return;
+            const token = currentSession.token;
+            const btn = document.getElementById('copyTokenBtn');
+            const showCopied = () => {
+                if (!btn) return;
+                const orig = btn.textContent;
+                btn.textContent = '✓ Copied';
+                setTimeout(() => { btn.textContent = orig; }, 1500);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(token).then(showCopied).catch(() => {
+                    fallbackCopy(token);
+                    showCopied();
+                });
+            } else {
+                fallbackCopy(token);
+                showCopied();
+            }
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (_) {}
+            document.body.removeChild(ta);
+        }
+
+        async function toggleQRScanner() {
+            if (scannerActive) {
+                closeQRScanner();
+            } else {
+                startQRScanner();
+            }
+        }
+
+        async function startQRScanner() {
+            if (scannerActive || !currentSession) return;
+            const video = document.getElementById('qrVideo');
+            const statusText = document.getElementById('scanStatusText');
+            const scanStatus = document.getElementById('scanStatus');
+            const toggleBtn = document.getElementById('toggleScannerBtn');
+            const indicator = document.getElementById('scanIndicator');
+            try {
+                statusText.textContent = 'Requesting camera access...';
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+                    });
+                } catch (e) {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                }
+                video.srcObject = stream;
+                await new Promise((resolve) => {
+                    if (video.readyState >= 2) { resolve(); return; }
+                    video.onloadedmetadata = resolve;
+                    setTimeout(resolve, 3000);
+                });
+                try { await video.play(); } catch (_) {}
+                scannerActive = true;
+                toggleBtn.textContent = '⏹️ Stop Scanner';
+                toggleBtn.style.background = '#dc2626';
+                statusText.textContent = 'Scanner active — hold student QR in front of camera';
+                scanStatus.style.background = '#d1fae5';
+                scanStatus.style.border = '1px solid #6ee7b7';
+                statusText.style.color = '#065f46';
+                indicator.style.display = 'block';
+                requestAnimationFrame(scanQRFrame);
+            } catch (error) {
+                console.error('Camera access error:', error);
+                statusText.textContent = '❌ Camera access denied. Please allow camera permission and try again.';
+                scanStatus.style.background = '#fee2e2';
+                scanStatus.style.border = '1px solid #fca5a5';
+                statusText.style.color = '#991b1b';
+            }
+        }
+
+        function scanQRFrame() {
+            if (!scannerActive) return;
+            const video = document.getElementById('qrVideo');
+            const canvas = document.getElementById('qrCanvas');
+            const ctx = canvas.getContext('2d');
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                try {
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    if (typeof jsQR !== 'undefined') {
+                        const code = jsQR(imageData.data, canvas.width, canvas.height);
+                        if (code) {
+                            handleScannedQRCode(code.data);
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    console.log('QR scan attempt...', err);
+                }
+            }
+            requestAnimationFrame(scanQRFrame);
+        }
+
+        async function handleScannedQRCode(qrData) {
+            if (!currentSession || !scannerActive) return;
+            try {
+                let identifier = qrData;
+                const prefix = 'ATTEND:STUDENT:';
+                if (qrData.startsWith(prefix)) {
+                    identifier = qrData.substring(prefix.length);
+                }
+                const db = firebase.database();
+                const usersSnap = await db.ref('users').once('value');
+                const users = usersSnap.val() || {};
+                let foundUser = null;
+                let foundUid = null;
+                if (users[identifier]) {
+                    foundUser = users[identifier];
+                    foundUid = identifier;
+                } else {
+                    for (const [uid, user] of Object.entries(users)) {
+                        if (user.matricNo && user.matricNo === identifier) {
+                            foundUser = user;
+                            foundUid = uid;
+                            break;
+                        }
+                    }
+                }
+                if (!foundUser) {
+                    console.log(`Student with identifier "${identifier}" not found.`);
+                    return;
+                }
+                const attendanceRef = db.ref(`attendance/${currentSession.id}/${foundUid}`);
+                const existingAttendance = await attendanceRef.once('value');
+                if (existingAttendance.exists()) {
+                    console.log(`${foundUser.name} already marked in this session.`);
+                    return;
+                }
+                await attendanceRef.set({
+                    timestamp: Date.now(),
+                    deviceId: 'qr_scan',
+                    lat: '',
+                    lng: '',
+                    ip: '',
+                    markedBy: 'admin_qr_scan'
+                });
+                const statusText = document.getElementById('scanStatusText');
+                statusText.textContent = `✓ ${foundUser.name} marked present`;
+                statusText.style.background = '#d1fae5';
+                statusText.style.color = '#065f46';
+                loadLiveAttendance();
+                setTimeout(() => {
+                    if (scannerActive) {
+                        statusText.textContent = 'Scanner active - hold QR code in front of camera';
+                        statusText.style.background = '#d1fae5';
+                        statusText.style.color = '#065f46';
+                    }
+                }, 2000);
+                console.log(`✓ ${foundUser.name} (${foundUser.matricNo}) marked present`);
+            } catch (error) {
+                console.error('Error processing QR code:', error);
+            }
+        }
+
+        async function closeQRScanner() {
+            scannerActive = false;
+            const video = document.getElementById('qrVideo');
+            if (video.srcObject) {
+                const tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            const toggleBtn = document.getElementById('toggleScannerBtn');
+            const statusText = document.getElementById('scanStatusText');
+            const indicator = document.getElementById('scanIndicator');
+            toggleBtn.textContent = '📷 Start Scanner';
+            toggleBtn.style.background = 'linear-gradient(135deg, #059669 0%, #0891b2 100%)';
+            statusText.textContent = 'Camera closed';
+            statusText.style.background = '#f3f4f6';
+            statusText.style.color = '#666';
+            indicator.style.display = 'none';
+        }
+
+        function startAttendancePolling() {
+            const interval = setInterval(() => {
+                if (!currentSession || !currentSession.active) {
+                    clearInterval(interval);
+                    return;
+                }
+                loadLiveAttendance();
+            }, 2000);
+        }
+
+        async function loadLiveAttendance() {
+            if (!currentSession) return;
+            try {
+                const db = firebase.database();
+                const [attendanceSnap, usersSnap] = await Promise.all([
+                    db.ref(`attendance/${currentSession.id}`).once('value'),
+                    db.ref('users').once('value')
+                ]);
+                const attendance = attendanceSnap.val() || {};
+                const users = usersSnap.val() || {};
+                const list = document.getElementById('attendanceList');
+                const entries = Object.entries(attendance).sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+                const items = entries.map(([uid, record]) => {
+                    const user = users[uid] || {};
+                    const name = user.name || 'Unknown';
+                    const matric = user.matricNo ? ` (${user.matricNo})` : '';
+                    const date = new Date(record.timestamp);
+                    const isLate = record.timestamp > (currentSession.startTime + 5 * 60 * 1000);
+                    const tag = record.markedBy === 'admin_qr_scan' ? ' <span style="font-size:0.75rem; background:#0891b2; color:#fff; padding:0.1rem 0.4rem; border-radius:4px; margin-left:0.4rem;">QR scan</span>' : '';
+                    return `<div class="attendance-item ${isLate ? 'late' : ''}">
+                        ✓ <strong>${escapeHtml(name)}</strong>${escapeHtml(matric)}${tag} <span style="float:right; color:#aaa; font-size:0.85rem;">${date.toLocaleTimeString()}</span>
+                    </div>`;
+                });
+                document.getElementById('attendanceCount').textContent = items.length;
+                list.innerHTML = items.length > 0 ? items.join('') : '<p style="color: #999;">Waiting for attendance...</p>';
+            } catch (error) {
+                console.error('Error loading attendance:', error);
+            }
+        }
+
+        async function loadAdminDashboard() {
+            try {
+                const db = firebase.database();
+                const [sessionsSnap, usersSnap] = await Promise.all([
+                    db.ref('sessions').once('value'),
+                    db.ref('users').once('value')
+                ]);
+                const sessions = sessionsSnap.val() || {};
+                const users = usersSnap.val() || {};
+                const studentCount = Object.values(users).filter(u => u && u.role !== 'admin').length;
+                const departments = Array.from(new Set(Object.values(users).filter(u => u && u.department).map(u => u.department)));
+                document.getElementById('totalStudents').textContent = studentCount;
+                document.getElementById('totalDepartments').textContent = departments.length;
+                const activeSessions = Object.entries(sessions).find(([_, s]) => s && s.active);
+                if (activeSessions) {
+                    currentSession = { id: activeSessions[0], ...activeSessions[1] };
+                    displaySessionStatus();
+                    loadLiveAttendance();
+                    startAttendancePolling();
+                    startMapPolling();
+                    document.getElementById('downloadAttendanceBtn').onclick = downloadAttendanceCSV;
+                } else {
+                    displayNoSession();
+                }
+                document.getElementById('downloadAllAttendanceBtn').onclick = downloadAllAttendanceCSV;
+                await loadDepartmentAttendanceCards();
+                await loadPendingPasswordResets();
+                await loadAdminAdEditor();
+            } catch (error) {
+                console.error('Error loading admin dashboard:', error);
+            }
+        }
+
+        async function loadPendingPasswordResets() {
+            try {
+                const db = firebase.database();
+                const snap = await db.ref('password_reset_requests').once('value');
+                const requests = snap.val() || {};
+                const pending = Object.entries(requests).filter(([_, r]) => r && r.status === 'pending');
+                const section = document.getElementById('pendingResetsSection');
+                const countEl = document.getElementById('pendingResetsCount');
+                const listEl = document.getElementById('pendingResetsList');
+                if (pending.length === 0) {
+                    section.style.display = 'none';
+                    return;
+                }
+                section.style.display = 'block';
+                countEl.textContent = pending.length;
+                listEl.innerHTML = pending.map(([key, r]) => `
+                    <div style="background:#fff8dc; border:1px solid #f59e0b; border-radius:0.5rem; padding:1rem; margin-bottom:0.75rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+                        <div style="flex:1; min-width:200px;">
+                            <strong style="font-size:0.95rem;">${escapeHtml(r.name)}</strong>
+                            <span style="color:#666; font-size:0.85rem; margin-left:0.5rem;">${escapeHtml(r.matricNo)}</span>
+                            <div style="font-size:0.8rem; color:#888; margin-top:0.3rem;">${new Date(r.timestamp).toLocaleString()}</div>
+                        </div>
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                            <button onclick="acceptResetRequest('${key}')" style="background:#059669; color:white; border:none; border-radius:0.375rem; padding:0.5rem 1rem; cursor:pointer; font-size:0.85rem; font-weight:500;">✓ Accept</button>
+                            <button onclick="rejectResetRequest('${key}')" style="background:#dc2626; color:white; border:none; border-radius:0.375rem; padding:0.5rem 1rem; cursor:pointer; font-size:0.85rem; font-weight:500;">✗ Reject</button>
+                        </div>
+                    </div>`).join('');
+            } catch (err) {
+                console.error('Error loading password reset requests:', err);
+            }
+        }
+
+        async function acceptResetRequest(key) {
+            try {
+                const db = firebase.database();
+                const requestSnap = await db.ref(`password_reset_requests/${key}`).once('value');
+                const request = requestSnap.val();
+                if (!request) {
+                    alert('Reset request not found.');
+                    return;
+                }
+                const matricNo = request.matricNo;
+                const email = sanitizeEmail(matricNo);
+                const requestedPassword = request.requestedPassword || '';
+                let newPassword = requestedPassword;
+                let approvalNote = 'Password reset approved.';
+                let tempPassword = '';
+                if (!newPassword) {
+                    tempPassword = 'Temp' + Math.random().toString(36).substring(2, 8).toUpperCase() + '123';
+                    newPassword = tempPassword;
+                    approvalNote = 'Approved with generated temporary password.';
+                }
+                try {
+                    const res = await fetch('/api/admin-reset-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ matricNo, email, newPassword })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        await db.ref(`password_reset_requests/${key}`).update({
+                            status: 'approved',
+                            processedAt: Date.now(),
+                            processedBy: currentUser.uid,
+                            note: approvalNote,
+                            tempPassword: tempPassword || null
+                        });
+                        alert(`Password reset approved and changed successfully!${tempPassword ? `\n\nTemporary password: ${tempPassword}` : ''}`);
+                        loadPendingPasswordResets();
+                        return;
+                    }
+                } catch (_) {
+                }
+                await db.ref(`password_reset_requests/${key}`).update({
+                    status: 'approved',
+                    processedAt: Date.now(),
+                    processedBy: currentUser.uid,
+                    note: approvalNote + ' Backend reset unavailable.',
+                    tempPassword: tempPassword || null
+                });
+                alert(`Password reset marked approved.${tempPassword ? `\n\nTemporary password: ${tempPassword}` : ''}\n\nIf backend reset is not available, you must manually update the password in Firebase Auth.`);
+                loadPendingPasswordResets();
+            } catch (err) {
+                alert('Error accepting request: ' + err.message);
+            }
+        }
+
+        async function rejectResetRequest(key) {
+            const reason = prompt('Enter rejection reason (optional):');
+            if (reason === null) return;
+            try {
+                const db = firebase.database();
+                await db.ref(`password_reset_requests/${key}`).update({
+                    status: 'rejected',
+                    processedAt: Date.now(),
+                    rejectionReason: reason || 'No reason provided',
+                    processedBy: currentUser.uid
+                });
+                alert('Password reset request rejected.');
+                loadPendingPasswordResets();
+            } catch (err) {
+                alert('Error rejecting request: ' + err.message);
+            }
+        }
+
+        async function loadDepartmentAttendanceCards() {
+            const db = firebase.database();
+            const usersSnap = await db.ref('users').once('value');
+            const users = usersSnap.val() || {};
+            const departments = {};
+            Object.values(users).forEach(u => {
+                if (u.department) {
+                    departments[u.department] = true;
+                }
+            });
+            const departmentList = Object.keys(departments);
+            const cardsDiv = document.getElementById('departmentAttendanceCards');
+            cardsDiv.innerHTML = '';
+            departmentList.forEach(dept => {
+                const card = document.createElement('div');
+                card.className = 'department-card';
+                card.style = 'background:#222; color:#fff; border-radius:10px; padding:20px; min-width:250px; margin-bottom:10px; box-shadow:0 2px 8px #0002; flex:1 1 300px; max-width:350px;';
+                card.innerHTML = `
+                    <h4 style="margin-bottom:10px; color:#4e8cff;"><span style='font-size:2em;'>📘</span> ${dept}</h4>
+                    <div style='font-size:13px; color:#aaa; margin-bottom:8px;'>Department</div>
+                    <button onclick="viewDepartmentAttendance('${dept.replace(/'/g, "\\'")}')" style='background:#1976d2; color:#fff; border:none; border-radius:4px; padding:8px 16px; margin-right:8px; cursor:pointer;'>👁️ View Attendance</button>
+                    <button onclick="downloadDepartmentAttendance('${dept.replace(/'/g, "\\'")}')" style='background:#43a047; color:#fff; border:none; border-radius:4px; padding:8px 16px; cursor:pointer;'>⬇️ Download as Document</button>
+                `;
+                cardsDiv.appendChild(card);
+            });
+        }
+
+        async function viewDepartmentAttendance(department) {
+            try {
+                const db = firebase.database();
+                const usersSnap = await db.ref('users').once('value');
+                const users = usersSnap.val() || {};
+                const attendanceSnap = await db.ref('attendance').once('value');
+                const allAttendance = attendanceSnap.val() || {};
+                const records = [];
+                Object.entries(allAttendance).forEach(([sessionId, sessionAttendance]) => {
+                    if (!sessionAttendance) return;
+                    Object.entries(sessionAttendance).forEach(([uid, record]) => {
+                        const user = users[uid];
+                        if (user && user.department === department) {
+                            records.push({
+                                matricNo: user.matricNo || '',
+                                name: user.name || '',
+                                email: user.email || '',
+                                timestamp: record.timestamp ? new Date(record.timestamp).toLocaleString() : '',
+                                lat: record.lat || '',
+                                lng: record.lng || ''
+                            });
+                        }
+                    });
+                });
+                let table = `<table style='width:100%; border-collapse:collapse; background:#333; color:#fff;'>`;
+                table += `<tr style='background:#444;'><th>Matric No</th><th>Name</th><th>Email</th><th>Date/Time</th><th>Latitude</th><th>Longitude</th></tr>`;
+                if (records.length === 0) {
+                    table += `<tr><td colspan='6' style='text-align:center; color:#aaa;'>No attendance records for this department.</td></tr>`;
+                } else {
+                    records.forEach(r => {
+                        table += `<tr><td>${r.matricNo}</td><td>${r.name}</td><td>${r.email}</td><td>${r.timestamp}</td><td>${r.lat}</td><td>${r.lng}</td></tr>`;
+                    });
+                }
+                table += `</table>`;
+                document.getElementById('modalDepartmentTitle').textContent = `Attendance for ${department}`;
+                document.getElementById('departmentAttendanceTable').innerHTML = table;
+                document.getElementById('departmentAttendanceModal').style.display = 'flex';
+            } catch (error) {
+                console.error('Error viewing department attendance:', error);
+                alert('Error loading attendance: ' + error.message);
+            }
+        }
+
+        function closeDepartmentAttendanceModal() {
+            document.getElementById('departmentAttendanceModal').style.display = 'none';
+        }
+
+        async function downloadDepartmentAttendance(department) {
+            try {
+                const db = firebase.database();
+                const usersSnap = await db.ref('users').once('value');
+                const users = usersSnap.val() || {};
+                const attendanceSnap = await db.ref('attendance').once('value');
+                const allAttendance = attendanceSnap.val() || {};
+                const records = [];
+                Object.entries(allAttendance).forEach(([sessionId, sessionAttendance]) => {
+                    if (!sessionAttendance) return;
+                    Object.entries(sessionAttendance).forEach(([uid, record]) => {
+                        const user = users[uid];
+                        if (user && user.department === department) {
+                            records.push({
+                                matricNo: user.matricNo || '',
+                                name: user.name || '',
+                                email: user.email || '',
+                                timestamp: record.timestamp ? new Date(record.timestamp).toLocaleString() : '',
+                                lat: record.lat || '',
+                                lng: record.lng || ''
+                            });
+                        }
+                    });
+                });
+                if (records.length === 0) {
+                    alert('No attendance records found for this department.');
+                    return;
+                }
+                let csv = 'Matric No,Name,Email,Date/Time,Latitude,Longitude\n';
+                records.forEach(r => {
+                    csv += `${r.matricNo},${r.name},${r.email},${r.timestamp},${r.lat},${r.lng}\n`;
+                });
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `attendance_${department.replace(/\s+/g, '_')}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error downloading department attendance:', error);
+                alert('Error downloading attendance: ' + error.message);
+            }
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        async function handleLogout() {
+            try {
+                await firebase.auth().signOut();
+                window.location.href = 'login.html';
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function markManualAttendance() {
+            const matricInput = document.getElementById('manualStudentMatric').value.trim();
+            const dateInput = document.getElementById('manualAttendanceDate').value;
+            if (!matricInput) {
+                alert('Please enter a student matric number.');
+                return;
+            }
+            if (!dateInput) {
+                alert('Please select a date and time.');
+                return;
+            }
+            try {
+                const db = firebase.database();
+                const usersSnap = await db.ref('users').once('value');
+                const users = usersSnap.val() || {};
+                let foundUser = null;
+                let foundUid = null;
+                for (const [uid, user] of Object.entries(users)) {
+                    if (user.matricNo && user.matricNo.toUpperCase() === matricInput.toUpperCase()) {
+                        foundUser = user;
+                        foundUid = uid;
+                        break;
+                    }
+                }
+                if (!foundUser) {
+                    alert(`Student with matric number "${matricInput}" not found.`);
+                    return;
+                }
+                const selectedDate = new Date(dateInput);
+                const timestamp = selectedDate.getTime();
+                const sessionsSnap = await db.ref('sessions').once('value');
+                const sessions = sessionsSnap.val() || {};
+                let sessionId = null;
+                const targetDateStart = new Date(selectedDate);
+                targetDateStart.setHours(0, 0, 0, 0);
+                const targetDateEnd = new Date(selectedDate);
+                targetDateEnd.setHours(23, 59, 59, 999);
+                for (const [sId, session] of Object.entries(sessions)) {
+                    if (session && session.startTime >= targetDateStart.getTime() && session.startTime <= targetDateEnd.getTime()) {
+                        sessionId = sId;
+                        break;
+                    }
+                }
+                if (!sessionId) {
+                    const sessionRef = db.ref('sessions').push();
+                    sessionId = sessionRef.key;
+                    const sessionDate = new Date(selectedDate);
+                    sessionDate.setHours(9, 0, 0, 0);
+                    await sessionRef.set({
+                        token: Math.random().toString(36).substring(2, 11),
+                        startTime: sessionDate.getTime(),
+                        endTime: sessionDate.getTime() + 60 * 60 * 1000,
+                        active: false,
+                        adminLat: 0,
+                        adminLng: 0,
+                        adminDeviceId: 'admin',
+                        topic: selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    });
+                }
+                await db.ref(`attendance/${sessionId}/${foundUid}`).set({
+                    timestamp: timestamp,
+                    deviceId: 'admin_manual',
+                    lat: '',
+                    lng: '',
+                    ip: '',
+                    markedBy: 'admin_manual'
+                });
+                alert(`✓ Attendance marked for ${foundUser.name} (${matricInput}) on ${selectedDate.toLocaleString()}`);
+                document.getElementById('manualStudentMatric').value = '';
+                document.getElementById('manualAttendanceDate').value = '';
+                if (currentSession) loadLiveAttendance();
+            } catch (error) {
+                console.error('Error marking attendance:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function cleanWhatsAppNumber(number) {
+            return (number || '').replace(/[^0-9]/g, '');
+        }
+
+        function getWhatsAppUrl(number) {
+            const cleaned = cleanWhatsAppNumber(number);
+            return cleaned ? `https://wa.me/${cleaned}` : '';
+        }
+
+        function loadAdImageFromFile(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = reader.result;
+                document.getElementById('adImageBase64').value = base64;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function loadAdminAdEditor() {
+            try {
+                const db = firebase.database();
+                const snap = await db.ref('advertisement').once('value');
+                const ad = snap.val();
+                const status = document.getElementById('adStatus');
+                if (ad && ad.imageBase64) {
+                    document.getElementById('adImageBase64').value = ad.imageBase64;
+                    document.getElementById('adCaptionInput').value = ad.caption || '';
+                    document.getElementById('adWhatsappInput').value = ad.whatsapp || '';
+                    const preview = document.getElementById('adImagePreview');
+                    if (preview) preview.src = ad.imageBase64;
+                    if (status) {
+                        const expires = new Date(ad.expiresAt);
+                        status.textContent = `Active until ${expires.toLocaleString()}`;
+                    }
+                } else if (status) {
+                    status.textContent = 'No active ad.';
+                }
+            } catch (error) {
+                console.error('Error loading admin ad editor:', error);
+            }
+        }
+
+        async function saveAdvertisement() {
+            const imageBase64 = document.getElementById('adImageBase64').value.trim();
+            const caption = document.getElementById('adCaptionInput').value.trim();
+            const whatsapp = document.getElementById('adWhatsappInput').value.trim();
+            const status = document.getElementById('adStatus');
+            if (!imageBase64) {
+                alert('Please provide a flyer image either by uploading or pasting base64 data.');
+                return;
+            }
+            if (!caption) {
+                alert('Please enter an ad caption.');
+                return;
+            }
+            if (!getWhatsAppUrl(whatsapp)) {
+                alert('Please enter a valid WhatsApp number.');
+                return;
+            }
+            try {
+                const db = firebase.database();
+                const ad = {
+                    imageBase64,
+                    caption,
+                    whatsapp: cleanWhatsAppNumber(whatsapp),
+                    createdAt: Date.now(),
+                    expiresAt: Date.now() + 48 * 60 * 60 * 1000
+                };
+                await db.ref('advertisement').set(ad);
+                const preview = document.getElementById('adImagePreview');
+                if (preview) preview.src = imageBase64;
+                if (status) {
+                    status.textContent = `Ad saved. Active until ${new Date(ad.expiresAt).toLocaleString()}`;
+                }
+                alert('Advertisement saved and active for 48 hours.');
+            } catch (error) {
+                console.error('Error saving advertisement:', error);
+                alert('Unable to save ad. Check console for details.');
+            }
+        }
+
+        async function clearAdvertisement() {
+            try {
+                const db = firebase.database();
+                await db.ref('advertisement').remove();
+                document.getElementById('adImageBase64').value = '';
+                document.getElementById('adCaptionInput').value = '';
+                document.getElementById('adWhatsappInput').value = '';
+                const preview = document.getElementById('adImagePreview');
+                if (preview) preview.src = '';
+                const status = document.getElementById('adStatus');
+                if (status) status.textContent = 'No active ad.';
+                alert('Advertisement cleared.');
+            } catch (error) {
+                console.error('Error clearing advertisement:', error);
+                alert('Unable to clear ad.');
+            }
+        }
+    </script>
+    <div id="globalSpinner"><div class="spinner"></div></div>
+</body>
+</html>

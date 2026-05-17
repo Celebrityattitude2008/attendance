@@ -150,3 +150,36 @@ async function signInWithGoogle(role) {
     await ensureUserRecord(user, role, role === 'admin' ? 'Administrator' : '');
     return user;
 }
+
+function showGlobalSpinner() {
+    const spinner = document.getElementById('globalSpinner');
+    if (spinner) {
+        spinner.style.display = 'flex';
+    }
+}
+
+function hideGlobalSpinner() {
+    const spinner = document.getElementById('globalSpinner');
+    if (spinner) {
+        spinner.style.display = 'none';
+    }
+}
+
+function setButtonLoading(button, loadingText = 'Loading...') {
+    if (!button) return;
+    button.dataset.originalText = button.innerHTML;
+    button.disabled = true;
+    button.classList.add('loading');
+    button.innerHTML = loadingText;
+    showGlobalSpinner();
+}
+
+function clearButtonLoading(button) {
+    if (!button) return;
+    button.disabled = false;
+    button.classList.remove('loading');
+    if (button.dataset.originalText) {
+        button.innerHTML = button.dataset.originalText;
+    }
+    hideGlobalSpinner();
+}

@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verix - Dashboard</title>
+    <title>Prella - Dashboard</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         .skeleton { background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 0.25rem; }
         .skeleton-text { height: 1rem; margin-bottom: 0.5rem; }
@@ -407,27 +406,12 @@
     </div>
 
     <!-- QR Scanner Modal (shared by student session-scan and admin student-scan) -->
-    <div id="qrScannerModal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; z-index:2000; padding:1rem;">
-        <div class="card" style="max-width:520px; width:100%; position:relative; background:#1a1a1a; color:#fff; max-height:95vh; overflow:auto;">
-            <button onclick="closeQrScanner()" style="position:absolute; top:10px; right:10px; background:#dc2626; color:#fff; border:none; border-radius:0.25rem; padding:0.4rem 0.8rem; cursor:pointer; z-index:10;">Close</button>
-            <h3 id="qrScannerTitle" style="color:#fff; margin-bottom:0.75rem;">Scan QR Code</h3>
-            <p id="qrScannerSubtitle" style="color:#aaa; font-size:0.875rem; margin-bottom:1rem;"></p>
-            <div id="qrReader" style="width:100%; min-height:200px;"></div>
-            <p id="qrScannerStatus" style="margin-top:1rem; color:#aaa; text-align:center; font-size:0.9rem; min-height:1.2em;"></p>
-        </div>
-    </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.6.0/firebase-messaging-compat.js"></script>
     <!-- QRCode library (generation) -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
-    <!-- QR scanner library (camera-based reading) -->
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <!-- jsQR library for inline camera QR decoding -->
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     <script src="auth.js"></script>
     <script>
         let currentUser = null;
@@ -593,9 +577,8 @@
             document.getElementById('mainContent').style.display = 'block';
 
             if (userData?.role === 'admin') {
-                document.getElementById('studentView').style.display = 'none';
-                document.getElementById('adminView').style.display = 'block';
-                loadAdminDashboard();
+                window.location.href = 'admin.html';
+                return;
             } else {
                 document.getElementById('adminView').style.display = 'none';
                 document.getElementById('studentView').style.display = 'block';
@@ -603,55 +586,6 @@
             }
         });
 
-        // Initialize Leaflet map
-        function initMap() {
-            if (map) return;
-            map = L.map('map').setView([0, 0], 2);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
-        }
-
-        // Update map with admin and user locations
-        async function updateMapLocations() {
-            if (!currentSession || !currentSession.active) return;
-            initMap();
-            const db = firebase.database();
-            // Get admin location from session
-            if (currentSession.adminLat && currentSession.adminLng) {
-                if (adminMarker) {
-                    adminMarker.setLatLng([currentSession.adminLat, currentSession.adminLng]);
-                } else {
-                    adminMarker = L.marker([currentSession.adminLat, currentSession.adminLng], {
-                        icon: L.divIcon({ className: 'admin-marker', html: '<div style="background:#e74c3c; width:20px; height:20px; border-radius:50%; border:3px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>', iconSize: [20, 20] })
-                    }).addTo(map).bindPopup('Admin Location');
-                }
-                map.setView([currentSession.adminLat, currentSession.adminLng], 15);
-            }
-            // Get user locations from attendance
-            const attendanceSnap = await db.ref(`attendance/${currentSession.id}`).once('value');
-            const attendance = attendanceSnap.val() || {};
-            for (const [uid, record] of Object.entries(attendance)) {
-                if (record.lat && record.lng) {
-                    if (userMarkers[uid]) {
-                        userMarkers[uid].setLatLng([record.lat, record.lng]);
-                    } else {
-                        userMarkers[uid] = L.marker([record.lat, record.lng], {
-                            icon: L.divIcon({ className: 'user-marker', html: '<div style="background:#3498db; width:16px; height:16px; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>', iconSize: [16, 16] })
-                        }).addTo(map).bindPopup(`User: ${uid.substring(0, 8)}...`);
-                    }
-                }
-            }
-        }
-
-        // Start map polling for admin
-        function startMapPolling() {
-            setInterval(() => {
-                if (currentSession && currentSession.active) {
-                    updateMapLocations();
-                }
-            }, 3000);
-        }
 
         async function loadStudentDashboard() {
             // Render the student's permanent personal QR code as soon as the view is shown.
@@ -2142,5 +2076,6 @@
             indicator.style.display = 'none';
         }
     </script>
+    <div id="globalSpinner"><div class="spinner"></div></div>
 </body>
 </html>

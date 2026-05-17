@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verix - Login</title>
+    <title>Prella - Login</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -13,7 +13,7 @@
                 <div class="icon-container">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                 </div>
-                <h1>Verix</h1>
+                <h1>Prella</h1>
                 <p>Sign in to continue</p>
             </div>
 
@@ -105,8 +105,10 @@
             const matricNo = document.getElementById('matricNo').value.trim();
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('errorMessage');
+            const submitButton = document.querySelector('#loginForm button[type="submit"]');
 
             errorDiv.classList.remove('show');
+            setButtonLoading(submitButton);
 
             try {
                 if (loginType !== 'student') {
@@ -134,16 +136,20 @@
                     errorMsg += ' (code: ' + error.code + ')';
                 }
                 showError(errorDiv, errorMsg);
+            } finally {
+                clearButtonLoading(submitButton);
             }
         }
 
         async function handleAdminGoogleSignIn() {
             const errorDiv = document.getElementById('errorMessage');
+            const googleButton = document.querySelector('#adminGoogleSignIn button');
             errorDiv.classList.remove('show');
+            setButtonLoading(googleButton);
 
             try {
                 await signInWithGoogle('admin');
-                window.location.href = 'dashboard.html';
+                window.location.href = 'admin.html';
             } catch (error) {
                 console.error('Admin login error:', error);
                 let errorMsg = error.message;
@@ -151,6 +157,8 @@
                     errorMsg += ' (code: ' + error.code + ')';
                 }
                 showError(errorDiv, errorMsg);
+            } finally {
+                clearButtonLoading(googleButton);
             }
         }
 
@@ -165,5 +173,6 @@
             setRole(currentRole);
         }
     </script>
+    <div id="globalSpinner"><div class="spinner"></div></div>
 </body>
 </html>

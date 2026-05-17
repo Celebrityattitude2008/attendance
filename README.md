@@ -1,4 +1,4 @@
-# Verix - HTML/CSS/JS Version
+# Prella - HTML/CSS/JS Version
 
 Simple, no-build attendance system.
 
@@ -14,11 +14,17 @@ Simple, no-build attendance system.
 ## Running Locally
 
 ```bash
-# Option 1: Python
-python -m http.server 8000
+# Install dependencies once
+npm install
 
-# Option 2: Node.js
-npx http-server
+# Start the local server with Firebase Admin backend
+npm start
+```
+
+Alternatively, use the helper script:
+
+```bash
+start-server.bat
 ```
 
 Then visit: **http://localhost:8000**

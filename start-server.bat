@@ -1,6 +1,10 @@
 @echo off
-echo Starting local server on http://localhost:8000
+echo Starting Prella local server with Firebase Admin backend on http://localhost:8000
 echo.
-python -m http.server 8000
+if not exist node_modules (
+  echo Installing dependencies...
+  npm install
+)
+npm start
 pause
 
